@@ -552,10 +552,27 @@ function cellClicked(r, c) {
 // VALIDATION
 // ─────────────────────────────────────────────
 function canPlayerMove(g) {
+  // Collect all empty cells adjacent to existing pieces (potential first placements)
   const rows = sheetCfg.rows, cols = sheetCfg.cols;
+  const firstCandidates = [];
   for (let r = 0; r < rows; r++)
     for (let c = 0; c < cols; c++)
-      if (!g[r][c] && isAdjacentOnGrid(g, r, c, rows, cols)) return true;
+      if (!g[r][c] && isAdjacentOnGrid(g, r, c, rows, cols))
+        firstCandidates.push([r, c]);
+
+  if (firstCandidates.length === 0) return false;
+
+  // For each first candidate, check if a second placement is possible
+  // (adjacent to existing pieces OR adjacent to the first piece itself)
+  for (const [r1, c1] of firstCandidates) {
+    // Simulate placing die 1 here
+    const tempGrid = g.map(row => [...row]);
+    tempGrid[r1][c1] = { type: 'x', rot: 0 }; // placeholder
+    for (let r2 = 0; r2 < rows; r2++)
+      for (let c2 = 0; c2 < cols; c2++)
+        if (!tempGrid[r2][c2] && isAdjacentOnGrid(tempGrid, r2, c2, rows, cols))
+          return true; // a valid second placement exists
+  }
   return false;
 }
 
@@ -570,15 +587,12 @@ function placementValid() {
   return placedThisRound.length === 2;
 }
 
-// Helper: is (r,c) adjacent to any piece NOT placed this round?
+// Helper: is (r,c) adjacent to any occupied cell (including pieces placed this round)?
 function isAdjacentToPreExisting(r, c) {
   const rows = sheetCfg.rows, cols = sheetCfg.cols;
-  const thisRoundCells = new Set(placedThisRound.map(p => `${p.r},${p.c}`));
-  return [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].some(([nr,nc]) => {
-    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) return false;
-    const cell = grid[nr][nc];
-    return cell && !thisRoundCells.has(`${nr},${nc}`);
-  });
+  return [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].some(([nr,nc]) =>
+    nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] !== null
+  );
 }
 
 function updateConfirmBtn() {
