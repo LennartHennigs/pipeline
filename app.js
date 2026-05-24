@@ -1,5 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getDatabase, ref, set, get, update, onValue, off, remove }
+import { getDatabase, ref, set, get, update, onValue, remove }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
 const FIREBASE_CONFIG = {
@@ -439,6 +439,8 @@ function initLocalGame(sheet) {
   for (const pp of sheetCfg.prePlaced)
     grid[pp.r][pp.c] = { type: pp.type, rot: pp.rot, prePlaced: true };
   myScore = 0; myStuck = false; round = 0;
+  diceTypes = [null, null]; diceRots = [0, 0];
+  dicePlaced = [false, false]; placedThisRound = []; activeDie = 0;
   EL.scoreDisplay.textContent = 0;
   updateStuckUI();
 }
@@ -505,7 +507,7 @@ window.joinRoom = async function() {
 // ── Firebase listener ──
 
 function listenRoom() {
-  if (roomListener) off(roomRef, 'value', roomListener);
+  stopListeningRoom();
   roomListener = onValue(roomRef, snap => {
     if (!snap.exists()) return;
     const data = snap.val();
@@ -560,7 +562,7 @@ async function autoConfirm() {
 }
 
 function stopListeningRoom() {
-  if (roomListener) { off(roomRef, 'value', roomListener); roomListener = null; }
+  if (roomListener) { roomListener(); roomListener = null; }
 }
 
 async function advanceRound(data, players) {
@@ -679,7 +681,7 @@ window.cancelGame = function() {
   if (!isSolo && roomRef) {
     isHost ? remove(roomRef) : remove(ref(db, `rooms/${roomCode}/players/${myId}`));
   }
-  sheetCfg = null;
+  isSolo = false; sheetCfg = null;
   showScreen('lobby');
 };
 
@@ -724,6 +726,9 @@ window.resumeGame = function() {
 window.discardSave = function() {
   clearSave();
   EL.resumeBanner.style.display = 'none';
+  isSolo   = false;
+  sheetCfg = null;
+  showScreen('lobby');
 };
 
 // ── QR code ──
