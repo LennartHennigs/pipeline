@@ -1,7 +1,7 @@
 # Pipeline 🎲
 
 A web app version of the **Pipeline** board game by Reiner Knizia.  
-Play solo or multiplayer across multiple iPhones — no app install required.
+Play solo or multiplayer across multiple iPhones — no app install required. This is only for private testing. Buy the board game!
 
 ## Setup
 
