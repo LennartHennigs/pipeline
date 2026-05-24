@@ -5,129 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
 <title>Pipeline</title>
-<style>
-  :root {
-    --bg: #1a1a2e;
-    --surface: #16213e;
-    --card: #0f3460;
-    --accent: #e94560;
-    --accent2: #53d8fb;
-    --green: #4caf50;
-    --grey: #888;
-    --text: #f0f0f0;
-    --muted: #aaa;
-    --cell: 58px;
-    --pipe-w: 10px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
-  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
-
-  /* ── Screens ── */
-  .screen { display: none; flex-direction: column; height: 100%; padding: 20px; }
-  .screen.active { display: flex; }
-
-  /* ── Lobby ── */
-  #lobby { align-items: center; justify-content: flex-start; gap: 20px; overflow-y: auto; padding-top: 40px; padding-bottom: 40px; }
-  .logo { font-size: 2.8rem; font-weight: 900; letter-spacing: 4px; color: var(--accent2); text-shadow: 0 0 30px var(--accent2); }
-  .logo span { color: var(--accent); }
-  .subtitle { color: var(--muted); font-size: .9rem; letter-spacing: 2px; }
-  .card { background: var(--card); border-radius: 14px; padding: 20px; width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 12px; }
-  .card h3 { font-size: 1rem; color: var(--accent2); text-transform: uppercase; letter-spacing: 2px; }
-  input { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); border-radius: 8px; padding: 12px 14px; color: var(--text); font-size: 1rem; width: 100%; }
-  input:focus { outline: 2px solid var(--accent2); }
-  input::placeholder { color: var(--muted); }
-  button { border: none; border-radius: 8px; padding: 13px 18px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: opacity .15s, transform .1s; }
-  button:active { transform: scale(.97); opacity: .85; }
-  .btn-primary { background: var(--accent); color: #fff; }
-  .btn-secondary { background: var(--card); color: var(--accent2); border: 1px solid var(--accent2); }
-  .btn-success { background: var(--green); color: #fff; }
-  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid rgba(255,255,255,.15); }
-  .or-divider { text-align: center; color: var(--muted); font-size: .85rem; }
-  .sheet-pick { display: flex; gap: 10px; }
-  .sheet-btn { flex: 1; padding: 16px 8px; background: rgba(255,255,255,.06); border: 2px solid transparent; border-radius: 10px; color: var(--text); font-size: .95rem; font-weight: 600; cursor: pointer; transition: border-color .15s, background .15s; }
-  .sheet-btn.selected { border-color: var(--accent2); background: rgba(83,216,251,.12); }
-
-  /* ── Waiting room ── */
-  #waiting { gap: 16px; }
-  .room-code-box { background: var(--card); border-radius: 14px; padding: 20px; text-align: center; }
-  .room-code-label { font-size: .8rem; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
-  .room-code { font-size: 3rem; font-weight: 900; letter-spacing: 8px; color: var(--accent2); cursor: pointer; }
-  .room-code-hint { font-size: .75rem; color: var(--muted); margin-top: 6px; }
-  .player-list { background: var(--card); border-radius: 14px; padding: 16px; flex: 1; overflow-y: auto; }
-  .player-list h3 { font-size: .85rem; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 12px; }
-  .player-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
-  .player-item:last-child { border-bottom: none; }
-  .player-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1rem; flex-shrink: 0; }
-  .player-name { flex: 1; font-size: .95rem; }
-  .player-badge { font-size: .75rem; padding: 2px 8px; border-radius: 20px; background: var(--accent); color: #fff; }
-  .player-stuck { font-size: .85rem; }
-
-  /* ── Game screen ── */
-  #game { padding: 0; gap: 0; }
-  .game-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface); border-bottom: 1px solid rgba(255,255,255,.08); flex-shrink: 0; }
-  .game-round { font-size: .9rem; color: var(--muted); }
-  .game-round strong { color: var(--text); }
-  .game-players-mini { display: flex; gap: 6px; }
-  .mini-player { display: flex; align-items: center; gap: 4px; font-size: .8rem; }
-  .mini-avatar { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .7rem; }
-  .mini-check { font-size: .9rem; }
-
-  .game-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; padding: 8px; }
-
-  .stuck-banner { background: var(--accent); color: #fff; text-align: center; padding: 8px; font-weight: 700; font-size: .9rem; flex-shrink: 0; }
-
-  /* Grid wrapper */
-  .grid-wrap { position: relative; }
-  .edge-labels { position: absolute; display: flex; }
-  .edge-label { display: flex; align-items: center; justify-content: center; font-size: .7rem; font-weight: 700; color: var(--muted); }
-  .edge-label.active { color: var(--accent2); }
-
-  #grid-svg { display: block; touch-action: manipulation; }
-
-  /* Dice panel */
-  .dice-panel { background: var(--surface); border-top: 1px solid rgba(255,255,255,.08); padding: 10px 14px; flex-shrink: 0; }
-  .dice-panel-title { font-size: .7rem; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
-  .dice-row { display: flex; gap: 10px; }
-  .die-card { flex: 1; background: var(--card); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; border: 2px solid transparent; transition: border-color .15s; cursor: pointer; position: relative; }
-  .die-card.selected { border-color: var(--accent2); background: rgba(83,216,251,.1); }
-  .die-card.placed { border-color: var(--green); background: rgba(76,175,80,.1); opacity: .7; }
-  .die-card-label { font-size: .65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
-  .die-svg-wrap { width: 64px; height: 64px; }
-  .die-placed-mark { position: absolute; top: 4px; right: 6px; font-size: .9rem; color: var(--green); }
-  .die-rotate-hint { font-size: .6rem; color: var(--muted); margin-top: 2px; }
-
-  /* Footer */
-  .game-footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface); border-top: 1px solid rgba(255,255,255,.08); flex-shrink: 0; }
-  .score-display { display: flex; flex-direction: column; }
-  .score-label { font-size: .65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
-  .score-value { font-size: 1.6rem; font-weight: 900; color: var(--accent2); }
-  #confirm-btn.done { background: #2a5c2e; color: #6fcf74; border: 1px solid #4caf50; cursor: default; transform: none; opacity: 1; }
-  #confirm-btn.done::after { content: ' Sent'; }
-
-  /* ── Results ── */
-  #results { gap: 16px; justify-content: center; align-items: center; }
-  .results-title { font-size: 1.8rem; font-weight: 900; color: var(--accent2); }
-  .results-card { background: var(--card); border-radius: 14px; padding: 20px; width: 100%; max-width: 340px; }
-  .result-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
-  .result-row:last-child { border-bottom: none; }
-  .result-rank { font-size: 1.2rem; font-weight: 900; width: 28px; color: var(--muted); }
-  .result-rank.gold { color: #ffd700; }
-  .result-name { flex: 1; }
-  .result-score { font-size: 1.3rem; font-weight: 900; color: var(--accent2); }
-  .result-note { font-size: .75rem; color: var(--muted); }
-  .solo-rating { background: var(--card); border-radius: 14px; padding: 16px 20px; width: 100%; max-width: 340px; text-align: center; }
-  .solo-rating-label { font-size: .75rem; color: var(--muted); margin-bottom: 4px; }
-  .solo-rating-title { font-size: 1.3rem; font-weight: 900; color: var(--accent); }
-
-  /* Modals / toasts */
-  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: .9rem; pointer-events: none; opacity: 0; transition: opacity .3s; z-index: 999; }
-  .toast.show { opacity: 1; }
-
-  /* Waiting state on grid */
-  .waiting-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; border-radius: 4px; }
-  .waiting-text { color: var(--text); font-size: .9rem; font-weight: 700; text-align: center; padding: 10px; }
-</style>
 </head>
 <body>
 
@@ -136,11 +16,11 @@
   <div class="logo">PIPE<span>LINE</span></div>
   <div class="subtitle">BY REINER KNIZIA</div>
 
-  <div id="resume-banner" class="card" style="display:none;border:2px solid var(--accent2);gap:10px;">
+  <div id="resume-banner" class="card resume-banner">
     <h3>Game in Progress</h3>
-    <p style="font-size:.85rem;color:var(--muted);">You have an unfinished solo game. Continue where you left off?</p>
+    <p class="card-subtitle">You have an unfinished solo game. Continue where you left off?</p>
     <button class="btn-secondary" onclick="resumeGame()">▶ Continue Game</button>
-    <button class="btn-ghost" onclick="discardSave()">✕ Discard & Start Fresh</button>
+    <button class="btn-ghost" onclick="discardSave()">✕ Discard &amp; Start Fresh</button>
   </div>
 
   <div class="card">
@@ -162,7 +42,7 @@
 
   <div class="card">
     <h3>Join Game</h3>
-    <input id="join-code" type="text" placeholder="Room code (e.g. ABCD)" maxlength="4" autocomplete="off" style="text-transform:uppercase;letter-spacing:4px;text-align:center;font-size:1.3rem;">
+    <input id="join-code" type="text" placeholder="Room code (e.g. ABCD)" maxlength="4" autocomplete="off" class="input-code">
     <button class="btn-secondary" onclick="joinRoom()">Join Room</button>
   </div>
 </div>
@@ -173,9 +53,9 @@
     <div class="room-code-label">Room Code</div>
     <div class="room-code" id="display-code" onclick="copyCode()">····</div>
     <div class="room-code-hint">Tap to copy · Share with friends</div>
-    <div id="qr-wrap" style="margin-top:12px;display:flex;flex-direction:column;align-items:center;gap:6px;">
-      <img id="qr-img" src="" alt="QR Code" style="width:130px;height:130px;border-radius:8px;display:none;">
-      <div id="qr-hint" style="font-size:.7rem;color:var(--muted);display:none;">Scan to join on another phone</div>
+    <div class="qr-wrap">
+      <img id="qr-img" class="qr-img" src="" alt="QR Code">
+      <div id="qr-hint" class="qr-hint">Scan to join on another phone</div>
     </div>
   </div>
   <div class="player-list">
@@ -191,7 +71,7 @@
   <div class="game-header">
     <div class="game-round">Round <strong id="round-display">1</strong></div>
     <div class="game-players-mini" id="players-mini"></div>
-    <button class="btn-ghost" style="padding:6px 10px;font-size:.8rem;" onclick="cancelGame()">✕ Leave</button>
+    <button class="btn-ghost btn-sm" onclick="cancelGame()">✕ Leave</button>
   </div>
 
   <div id="stuck-banner" class="stuck-banner" style="display:none">🚫 No moves left — you're done! Others are still playing.</div>
@@ -241,12 +121,8 @@
 
 <!-- ══════════════ FIREBASE SDK ══════════════ -->
 <script type="module">
-// ─────────────────────────────────────────────
-// FIREBASE CONFIG — replace with your own values
-// from https://console.firebase.google.com
-// ─────────────────────────────────────────────
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getDatabase, ref, set, get, update, onValue, off, push, remove }
+import { getDatabase, ref, set, get, update, onValue, off, remove }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
 const FIREBASE_CONFIG = {
@@ -259,66 +135,73 @@ const FIREBASE_CONFIG = {
   appId:             "1:434935715063:web:aca44e3a9e5fd92aed6ff2"
 };
 
-let fbApp, db;
-let firebaseReady = false;
-
+let db, firebaseReady = false;
 try {
-  fbApp = initializeApp(FIREBASE_CONFIG);
-  db    = getDatabase(fbApp);
+  db = getDatabase(initializeApp(FIREBASE_CONFIG));
   firebaseReady = true;
-} catch(e) {
-  console.warn('Firebase init failed — solo-only mode', e);
-}
+} catch(e) { console.warn('Firebase unavailable — solo only', e); }
 
 // ─────────────────────────────────────────────
-// GAME CONSTANTS
+// CONSTANTS
 // ─────────────────────────────────────────────
 const DIE1 = ['dead-end','corner','straight','cross','t-junction','t-junction'];
 const DIE2 = ['corner','straight','cross','cross','t-junction','t-junction'];
 
-// openings[type] at rotation 0: set of directions N E S W
 const BASE_OPENINGS = {
-  'dead-end':  ['N'],
-  'corner':    ['N','E'],
-  'straight':  ['N','S'],
-  't-junction':['N','E','W'],
-  'cross':     ['N','E','S','W'],
+  'dead-end':   ['N'],
+  'corner':     ['N','E'],
+  'straight':   ['N','S'],
+  't-junction': ['N','E','W'],
+  'cross':      ['N','E','S','W'],
 };
+
+// Pre-computed direction helpers
+const DIRS      = ['N','E','S','W'];
+const DIR_INDEX = { N:0, E:1, S:2, W:3 };   // O(1) lookup replaces indexOf
+const OPP       = { N:'S', S:'N', E:'W', W:'E' };
+const DIR_RC    = { N:[-1,0], S:[1,0], E:[0,1], W:[0,-1] };
 
 const PLAYER_COLORS = ['#e94560','#53d8fb','#ffd700','#a855f7','#f97316','#22c55e'];
 
 const SHEETS = {
   front: {
-    rows: 5, cols: 5, maxRounds: 12,
-    topEdge:    [1,3,1,1,1],
-    bottomEdge: [1,1,3,1,1],
-    leftEdge:   [1,3,1,1,5],
-    rightEdge:  [5,1,1,1,1],
-    prePlaced: [
-      {r:1, c:1, type:'corner',    rot:0},
-      {r:4, c:3, type:'corner',    rot:2},
+    rows:5, cols:5, maxRounds:12,
+    topEdge:[1,3,1,1,1], bottomEdge:[1,1,3,1,1],
+    leftEdge:[1,3,1,1,5], rightEdge:[5,1,1,1,1],
+    prePlaced:[
+      {r:1,c:1,type:'corner',rot:0},
+      {r:4,c:3,type:'corner',rot:2},
     ]
   },
   back: {
-    rows: 6, cols: 5, maxRounds: 14,
-    topEdge:    [5,1,1,1,1],
-    bottomEdge: [1,1,5,1,1],
-    leftEdge:   [1,1,1,5,1,1],
-    rightEdge:  [5,1,1,1,5,1],
-    prePlaced: [
-      {r:2, c:2, type:'t-junction', rot:1},
+    rows:6, cols:5, maxRounds:14,
+    topEdge:[5,1,1,1,1], bottomEdge:[1,1,5,1,1],
+    leftEdge:[1,1,1,5,1,1], rightEdge:[5,1,1,1,5,1],
+    prePlaced:[
+      {r:2,c:2,type:'t-junction',rot:1},
     ]
   }
 };
 
 const SOLO_RATINGS = [
-  {min:40, max:40, label:'Pipeline-Profi 🏆'},
-  {min:37, max:39, label:'Würfel-Champion 🎲'},
-  {min:34, max:36, label:'Verbindungsperson 🔧'},
-  {min:30, max:33, label:'Leitungslehrling 📐'},
-  {min:20, max:29, label:'Kanalreiniger 🪣'},
-  {min:0,  max:19, label:'Rohrkrepierer 💥'},
+  {min:40,max:40,label:'Pipeline-Profi 🏆'},
+  {min:37,max:39,label:'Würfel-Champion 🎲'},
+  {min:34,max:36,label:'Verbindungsperson 🔧'},
+  {min:30,max:33,label:'Leitungslehrling 📐'},
+  {min:20,max:29,label:'Kanalreiniger 🪣'},
+  {min:0, max:19,label:'Rohrkrepierer 💥'},
 ];
+
+const SAVE_KEY = 'pipeline_solo_save';
+const NAME_KEY = 'pipeline_player_name';
+
+// Cached die panel DOM refs (elements exist at parse time in a module script)
+const DIE_EL = [0,1].map(i => ({
+  card: document.getElementById(`die${i}`),
+  svg:  document.getElementById(`die${i}-svg`),
+  hint: document.getElementById(`die${i}-hint`),
+  mark: document.getElementById(`die${i}-mark`),
+}));
 
 // ─────────────────────────────────────────────
 // STATE
@@ -332,36 +215,34 @@ let roomRef = null;
 let roomListener = null;
 let selectedSheet = 'front';
 
-// Local game state
-let sheetCfg = null;
-let grid     = [];       // grid[r][c] = {type, rot} | null
-let diceTypes = [null, null];
-let diceRots  = [0, 0];
-let dicePlaced = [false, false]; // has this die been placed this round?
-let placedThisRound = []; // [{r,c,dieIdx}]
-let activeDie = 0;
-let myScore  = 0;
-let myStuck  = false;
-let round    = 0;
+let sheetCfg       = null;
+let grid           = [];
+let diceTypes      = [null, null];
+let diceRots       = [0, 0];
+let dicePlaced     = [false, false];
+let placedThisRound= [];
+let activeDie      = 0;
+let myScore        = 0;
+let myStuck        = false;
+let round          = 0;
 
 // ─────────────────────────────────────────────
-// OPENINGS HELPER
+// PIPE LOGIC
 // ─────────────────────────────────────────────
-const DIRS    = ['N','E','S','W'];
-const OPP     = { N:'S', S:'N', E:'W', W:'E' };
-const DIR_RC  = { N:[-1,0], S:[1,0], E:[0,1], W:[0,-1] };
-
+const _openingsCache = Object.create(null);
 function getOpenings(type, rot) {
+  const key = `${type}:${rot}`;
+  if (_openingsCache[key]) return _openingsCache[key];
   const base = BASE_OPENINGS[type] || [];
-  return new Set(base.map(d => DIRS[(DIRS.indexOf(d) + rot) % 4]));
+  const result = new Set(base.map(d => DIRS[(DIR_INDEX[d] + rot) % 4]));
+  _openingsCache[key] = result;
+  return result;
 }
 
-// True if piece (type,rot) at (r,c) has at least one opening that connects
-// to a matching opening on an already-placed neighbour in `g`.
+// True if placing (type,rot) at (r,c) in grid g pipe-connects to at least one neighbour
 function isValidPlacementOnGrid(g, r, c, type, rot) {
   const rows = g.length, cols = g[0].length;
-  const openings = getOpenings(type, rot);
-  for (const dir of openings) {
+  for (const dir of getOpenings(type, rot)) {
     const [dr, dc] = DIR_RC[dir];
     const nr = r + dr, nc = c + dc;
     if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
@@ -371,72 +252,48 @@ function isValidPlacementOnGrid(g, r, c, type, rot) {
   return false;
 }
 
-// Wrapper using the live grid
-function isValidPlacement(r, c, type, rot) {
-  return isValidPlacementOnGrid(grid, r, c, type, rot);
-}
+// Check against live grid
+const isValidPlacement = (r, c, type, rot) => isValidPlacementOnGrid(grid, r, c, type, rot);
 
 // ─────────────────────────────────────────────
 // SVG PIPE RENDERER
 // ─────────────────────────────────────────────
-const CELL = 58;
-const HALF = CELL / 2;
-const PIPE = 10;
-const R    = 4; // corner radius
+const CELL = 58, HALF = 29, PIPE = 10;
 
-function pipePath(type, rot, color = '#4caf50', size = CELL) {
-  const h = size / 2;
-  const p = size / CELL * PIPE;
-  const openings = getOpenings(type, rot);
+function pipePath(type, rot, color, size = CELL) {
+  const h = size / 2, p = size / CELL * PIPE;
+  const pts = { N:[h,0], E:[size,h], S:[h,size], W:[0,h] };
   const segs = [];
-  // Draw thick rounded pipe from center outward
-  const pts = {
-    N: [h, 0],   E: [size, h],
-    S: [h, size], W: [0, h]
-  };
-  for (const [d, [ex, ey]] of Object.entries(pts)) {
-    if (!openings.has(d)) continue;
-    segs.push(`<line x1="${h}" y1="${h}" x2="${ex}" y2="${ey}"
-      stroke="${color}" stroke-width="${p}"
-      stroke-linecap="round"/>`);
-  }
-  // Center dot
+  for (const dir of getOpenings(type, rot))
+    segs.push(`<line x1="${h}" y1="${h}" x2="${pts[dir][0]}" y2="${pts[dir][1]}" stroke="${color}" stroke-width="${p}" stroke-linecap="round"/>`);
   segs.push(`<circle cx="${h}" cy="${h}" r="${p/2}" fill="${color}"/>`);
   return segs.join('');
 }
 
-function makeDieSVG(type, rot, color, size = 52) {
+function makeDieSVG(type, rot, color, size = 64) {
   if (!type) return '';
-  return `<svg viewBox="0 0 ${CELL} ${CELL}" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-    ${pipePath(type, rot, color, CELL)}
-  </svg>`;
+  return `<svg viewBox="0 0 ${CELL} ${CELL}" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">${pipePath(type, rot, color)}</svg>`;
 }
 
 // ─────────────────────────────────────────────
 // GRID RENDERING
 // ─────────────────────────────────────────────
 function buildGrid() {
-  const cfg = sheetCfg;
-  if (!cfg) return;
-  const rows = cfg.rows, cols = cfg.cols;
-  const svgW = cols * CELL + 32; // extra for edge labels
-  const svgH = rows * CELL + 32;
-  const G = 16; // offset for labels
-
-  const svg = document.getElementById('grid-svg');
-  // Scale to fit viewport
-  const wrap = document.getElementById('grid-wrap');
+  if (!sheetCfg) return;
+  const { rows, cols } = sheetCfg;
+  const G = 16;
+  const svgW = cols * CELL + 32, svgH = rows * CELL + 32;
+  const svg  = document.getElementById('grid-svg');
   const maxW = Math.min(window.innerWidth - 16, 360);
   const maxH = window.innerHeight - 280;
   const scale = Math.min(maxW / svgW, maxH / svgH, 1);
-  svg.setAttribute('width',  svgW * scale);
-  svg.setAttribute('height', svgH * scale);
+  svg.setAttribute('width',   svgW * scale);
+  svg.setAttribute('height',  svgH * scale);
   svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
 
-  let html = '';
-
-  // Background
-  html += `<rect x="${G}" y="${G}" width="${cols*CELL}" height="${rows*CELL}" fill="#0f2a4a" rx="4"/>`;
+  const edgeColor = v => v === 5 ? '#e94560' : v === 3 ? '#ffd700' : '#666';
+  const curType = diceTypes[activeDie], curRot = diceRots[activeDie];
+  let html = `<rect x="${G}" y="${G}" width="${cols*CELL}" height="${rows*CELL}" fill="#0f2a4a" rx="4"/>`;
 
   // Grid lines
   for (let r = 0; r <= rows; r++)
@@ -444,82 +301,47 @@ function buildGrid() {
   for (let c = 0; c <= cols; c++)
     html += `<line x1="${G+c*CELL}" y1="${G}" x2="${G+c*CELL}" y2="${G+rows*CELL}" stroke="rgba(255,255,255,.12)" stroke-width="1"/>`;
 
-  // Edge labels — top
+  // Edge labels
   for (let c = 0; c < cols; c++) {
-    const v = cfg.topEdge[c];
-    html += `<text x="${G+c*CELL+HALF}" y="12" text-anchor="middle" font-size="11" font-weight="700"
-      fill="${v===5?'#e94560':v===3?'#ffd700':'#666'}">${v}</text>`;
+    html += `<text x="${G+c*CELL+HALF}" y="12" text-anchor="middle" font-size="11" font-weight="700" fill="${edgeColor(sheetCfg.topEdge[c])}">${sheetCfg.topEdge[c]}</text>`;
+    html += `<text x="${G+c*CELL+HALF}" y="${G+rows*CELL+13}" text-anchor="middle" font-size="11" font-weight="700" fill="${edgeColor(sheetCfg.bottomEdge[c])}">${sheetCfg.bottomEdge[c]}</text>`;
   }
-  // Edge labels — bottom
-  for (let c = 0; c < cols; c++) {
-    const v = cfg.bottomEdge[c];
-    html += `<text x="${G+c*CELL+HALF}" y="${G+rows*CELL+13}" text-anchor="middle" font-size="11" font-weight="700"
-      fill="${v===5?'#e94560':v===3?'#ffd700':'#666'}">${v}</text>`;
-  }
-  // Edge labels — left
   for (let r = 0; r < rows; r++) {
-    const v = cfg.leftEdge[r];
-    html += `<text x="11" y="${G+r*CELL+HALF+4}" text-anchor="middle" font-size="11" font-weight="700"
-      fill="${v===5?'#e94560':v===3?'#ffd700':'#666'}">${v}</text>`;
-  }
-  // Edge labels — right
-  for (let r = 0; r < rows; r++) {
-    const v = cfg.rightEdge[r];
-    html += `<text x="${G+cols*CELL+14}" y="${G+r*CELL+HALF+4}" text-anchor="middle" font-size="11" font-weight="700"
-      fill="${v===5?'#e94560':v===3?'#ffd700':'#666'}">${v}</text>`;
+    html += `<text x="11" y="${G+r*CELL+HALF+4}" text-anchor="middle" font-size="11" font-weight="700" fill="${edgeColor(sheetCfg.leftEdge[r])}">${sheetCfg.leftEdge[r]}</text>`;
+    html += `<text x="${G+cols*CELL+14}" y="${G+r*CELL+HALF+4}" text-anchor="middle" font-size="11" font-weight="700" fill="${edgeColor(sheetCfg.rightEdge[r])}">${sheetCfg.rightEdge[r]}</text>`;
   }
 
-  // Cells — pre-placed + player placed
+  // Cells
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const cell = grid[r][c];
-      const cx = G + c * CELL, cy = G + r * CELL;
-
-      if (!cell) {
-        // Valid if current die's piece (with its current rotation) connects pipe-to-pipe
-        const curType = diceTypes[activeDie], curRot = diceRots[activeDie];
-        const valid = curType ? isValidPlacement(r, c, curType, curRot) : false;
-
-        if (valid)
-          html += `<rect x="${cx+1}" y="${cy+1}" width="${CELL-2}" height="${CELL-2}" fill="rgba(83,216,251,.07)" rx="2"/>`;
-        else
-          html += `<rect x="${cx}" y="${cy}" width="${CELL}" height="${CELL}" fill="rgba(0,0,0,.28)" rx="2"/>`;
-
-        html += `<rect x="${cx}" y="${cy}" width="${CELL}" height="${CELL}"
-          fill="transparent" rx="2" data-r="${r}" data-c="${c}"
-          class="cell-click" style="cursor:${valid ? 'pointer' : 'not-allowed'}"/>`;
-      }
-
+      const cx = G + c*CELL, cy = G + r*CELL;
       if (cell) {
-        const color = cell.prePlaced ? '#666' : '#4caf50';
-        html += `<g transform="translate(${cx},${cy})">${pipePath(cell.type, cell.rot, color)}</g>`;
+        html += `<g transform="translate(${cx},${cy})">${pipePath(cell.type, cell.rot, cell.prePlaced ? '#666' : '#4caf50')}</g>`;
+      } else {
+        const valid = curType ? isValidPlacement(r, c, curType, curRot) : false;
+        html += valid
+          ? `<rect x="${cx+1}" y="${cy+1}" width="${CELL-2}" height="${CELL-2}" fill="rgba(83,216,251,.07)" rx="2"/>`
+          : `<rect x="${cx}" y="${cy}" width="${CELL}" height="${CELL}" fill="rgba(0,0,0,.28)" rx="2"/>`;
+        html += `<rect x="${cx}" y="${cy}" width="${CELL}" height="${CELL}" fill="transparent" rx="2" data-r="${r}" data-c="${c}" class="cell-click" style="cursor:${valid?'pointer':'not-allowed'}"/>`;
       }
     }
   }
 
-  // Preview of die being placed (pending placement this round)
+  // Preview pieces placed this round
   for (const p of placedThisRound) {
-    const cx = G + p.c * CELL, cy = G + p.r * CELL;
+    const cx = G + p.c*CELL, cy = G + p.r*CELL;
     html += `<g transform="translate(${cx},${cy})" opacity="0.7">${pipePath(diceTypes[p.dieIdx], diceRots[p.dieIdx], '#53d8fb')}</g>`;
-    // Undo button
-    html += `<text x="${cx+CELL-6}" y="${cy+14}" text-anchor="middle" font-size="12" fill="#e94560"
-      data-undo="${placedThisRound.indexOf(p)}" style="cursor:pointer">✕</text>`;
+    html += `<text x="${cx+CELL-6}" y="${cy+14}" text-anchor="middle" font-size="12" fill="#e94560" data-undo="${placedThisRound.indexOf(p)}" style="cursor:pointer">✕</text>`;
   }
 
   svg.innerHTML = html;
-
-  // Attach click handlers
-  svg.querySelectorAll('.cell-click').forEach(el => {
-    el.addEventListener('click', () => {
-      cellClicked(+el.dataset.r, +el.dataset.c);
-    });
-  });
-  svg.querySelectorAll('[data-undo]').forEach(el => {
-    el.addEventListener('click', (e) => {
-      e.stopPropagation();
-      undoPlace(+el.dataset.undo);
-    });
-  });
+  svg.querySelectorAll('.cell-click').forEach(el =>
+    el.addEventListener('click', () => cellClicked(+el.dataset.r, +el.dataset.c))
+  );
+  svg.querySelectorAll('[data-undo]').forEach(el =>
+    el.addEventListener('click', e => { e.stopPropagation(); undoPlace(+el.dataset.undo); })
+  );
 }
 
 function undoPlace(idx) {
@@ -538,28 +360,20 @@ function undoPlace(idx) {
 function cellClicked(r, c) {
   if (myStuck) return;
   if (dicePlaced[activeDie]) {
-    // switch to other die if available
     const other = 1 - activeDie;
-    if (!dicePlaced[other]) { activeDie = other; updateDicePanel(); }
-    else return;
+    if (!dicePlaced[other]) { activeDie = other; updateDicePanel(); buildGrid(); }
+    return;
   }
-  if (grid[r][c]) return; // occupied
-
-  // Piece must pipe-connect to at least one neighbour
+  if (grid[r][c]) return;
   if (!isValidPlacement(r, c, diceTypes[activeDie], diceRots[activeDie])) {
     showToast('⚠️ Must connect to existing pipe');
     return;
   }
-
-  // Place the piece
   dicePlaced[activeDie] = true;
   grid[r][c] = { type: diceTypes[activeDie], rot: diceRots[activeDie] };
   placedThisRound.push({ r, c, dieIdx: activeDie });
-
-  // Auto-switch to next die
   const other = 1 - activeDie;
-  if (!dicePlaced[other]) { activeDie = other; }
-
+  if (!dicePlaced[other]) activeDie = other;
   buildGrid();
   updateDicePanel();
   updateConfirmBtn();
@@ -571,52 +385,36 @@ function cellClicked(r, c) {
 // ─────────────────────────────────────────────
 function canPlayerMove(g) {
   const rows = g.length, cols = g[0].length;
-  const t1 = diceTypes[0], t2 = diceTypes[1];
-  // Try every rotation of die1 at every empty cell
-  for (let rot1 = 0; rot1 < 4; rot1++) {
-    for (let r1 = 0; r1 < rows; r1++) {
+  const [t1, t2] = diceTypes;
+  for (let rot1 = 0; rot1 < 4; rot1++)
+    for (let r1 = 0; r1 < rows; r1++)
       for (let c1 = 0; c1 < cols; c1++) {
-        if (g[r1][c1]) continue;
-        if (!isValidPlacementOnGrid(g, r1, c1, t1, rot1)) continue;
-        // Simulate placing die 1
+        if (g[r1][c1] || !isValidPlacementOnGrid(g, r1, c1, t1, rot1)) continue;
         const g2 = g.map(row => [...row]);
         g2[r1][c1] = { type: t1, rot: rot1 };
-        // Try every rotation of die2 at every other empty cell
         for (let rot2 = 0; rot2 < 4; rot2++)
           for (let r2 = 0; r2 < rows; r2++)
-            for (let c2 = 0; c2 < cols; c2++) {
-              if (g2[r2][c2]) continue;
-              if (isValidPlacementOnGrid(g2, r2, c2, t2, rot2)) return true;
-            }
+            for (let c2 = 0; c2 < cols; c2++)
+              if (!g2[r2][c2] && isValidPlacementOnGrid(g2, r2, c2, t2, rot2)) return true;
       }
-    }
-  }
   return false;
 }
 
-function placementValid() {
-  // Both pieces must be placed; adjacency is already enforced at placement time
-  return placedThisRound.length === 2;
-}
-
-
 function updateConfirmBtn() {
-  const btn = document.getElementById('confirm-btn');
-  const both = dicePlaced[0] && dicePlaced[1];
-  btn.disabled = !both || !placementValid();
+  document.getElementById('confirm-btn').disabled = placedThisRound.length < 2;
 }
 
 // ─────────────────────────────────────────────
 // SCORE CALCULATION
 // ─────────────────────────────────────────────
 function scoreCell(r, c, type, rot) {
-  const cfg = sheetCfg;
+  const { rows, cols, topEdge, bottomEdge, leftEdge, rightEdge } = sheetCfg;
   const openings = getOpenings(type, rot);
   let pts = 0;
-  if (r === 0            && openings.has('N')) pts += cfg.topEdge[c];
-  if (r === cfg.rows - 1 && openings.has('S')) pts += cfg.bottomEdge[c];
-  if (c === 0            && openings.has('W')) pts += cfg.leftEdge[r];
-  if (c === cfg.cols - 1 && openings.has('E')) pts += cfg.rightEdge[r];
+  if (r === 0        && openings.has('N')) pts += topEdge[c];
+  if (r === rows - 1 && openings.has('S')) pts += bottomEdge[c];
+  if (c === 0        && openings.has('W')) pts += leftEdge[r];
+  if (c === cols - 1 && openings.has('E')) pts += rightEdge[r];
   return pts;
 }
 
@@ -627,7 +425,6 @@ function calcScore() {
       const cell = grid[r][c];
       if (cell && !cell.prePlaced) total += scoreCell(r, c, cell.type, cell.rot);
     }
-  // Bonus: all 1-value edges connected
   if (allOnesConnected()) total += 10;
   myScore = total;
   document.getElementById('score-display').textContent = total;
@@ -635,27 +432,20 @@ function calcScore() {
 }
 
 function allOnesConnected() {
-  // Check every edge position with value=1 is reached
-  const cfg = sheetCfg;
-  for (let c = 0; c < cfg.cols; c++) {
-    if (cfg.topEdge[c] === 1) {
-      const cell = grid[0][c];
-      if (!cell || !getOpenings(cell.type, cell.rot).has('N')) return false;
+  const { rows, cols, topEdge, bottomEdge, leftEdge, rightEdge } = sheetCfg;
+  for (let c = 0; c < cols; c++) {
+    if (topEdge[c]    === 1 && !grid[0][c]?.let?.(ce => getOpenings(ce.type,ce.rot).has('N'))) {
+      const ce = grid[0][c];
+      if (!ce || !getOpenings(ce.type, ce.rot).has('N')) return false;
     }
-    if (cfg.bottomEdge[c] === 1) {
-      const cell = grid[cfg.rows-1][c];
-      if (!cell || !getOpenings(cell.type, cell.rot).has('S')) return false;
+    if (bottomEdge[c] === 1) {
+      const ce = grid[rows-1][c];
+      if (!ce || !getOpenings(ce.type, ce.rot).has('S')) return false;
     }
   }
-  for (let r = 0; r < cfg.rows; r++) {
-    if (cfg.leftEdge[r] === 1) {
-      const cell = grid[r][0];
-      if (!cell || !getOpenings(cell.type, cell.rot).has('W')) return false;
-    }
-    if (cfg.rightEdge[r] === 1) {
-      const cell = grid[r][cfg.cols-1];
-      if (!cell || !getOpenings(cell.type, cell.rot).has('E')) return false;
-    }
+  for (let r = 0; r < rows; r++) {
+    if (leftEdge[r]  === 1) { const ce = grid[r][0];       if (!ce || !getOpenings(ce.type,ce.rot).has('W')) return false; }
+    if (rightEdge[r] === 1) { const ce = grid[r][cols-1];  if (!ce || !getOpenings(ce.type,ce.rot).has('E')) return false; }
   }
   return true;
 }
@@ -665,36 +455,28 @@ function allOnesConnected() {
 // ─────────────────────────────────────────────
 function updateDicePanel() {
   for (let i = 0; i < 2; i++) {
-    const card    = document.getElementById(`die${i}`);
-    const svgWrap = document.getElementById(`die${i}-svg`);
-    const hint    = document.getElementById(`die${i}-hint`);
-    const mark    = document.getElementById(`die${i}-mark`);
-
-    const color = dicePlaced[i] ? '#4caf50' : (i === activeDie ? '#53d8fb' : '#888');
-    svgWrap.innerHTML = makeDieSVG(diceTypes[i], diceRots[i], color, 64);
-    mark.style.display = dicePlaced[i] ? 'block' : 'none';
-    hint.textContent = dicePlaced[i] ? '' : (i === activeDie ? 'tap to rotate ↺' : 'tap to select');
-    hint.style.color = i === activeDie ? 'var(--accent2)' : 'var(--muted)';
-    card.className = 'die-card' + (dicePlaced[i] ? ' placed' : (i === activeDie ? ' selected' : ''));
+    const { card, svg, hint, mark } = DIE_EL[i];
+    const isActive = i === activeDie, isPlaced = dicePlaced[i];
+    const color = isPlaced ? '#4caf50' : isActive ? '#53d8fb' : '#888';
+    svg.innerHTML  = makeDieSVG(diceTypes[i], diceRots[i], color);
+    mark.style.display = isPlaced ? 'block' : 'none';
+    hint.textContent   = isPlaced ? '' : isActive ? 'tap to rotate ↺' : 'tap to select';
+    hint.style.color   = isActive ? 'var(--accent2)' : 'var(--muted)';
+    card.className = 'die-card' + (isPlaced ? ' placed' : isActive ? ' selected' : '');
   }
 }
 
-// Tap die card: if not active → select it; if active → rotate it
 window.dieCardClick = function(i) {
   if (dicePlaced[i]) return;
   if (activeDie !== i) {
     activeDie = i;
   } else {
     diceRots[i] = (diceRots[i] + 1) % 4;
-    // If already placed on grid, update that cell's rotation too
     const placed = placedThisRound.find(p => p.dieIdx === i);
-    if (placed) {
-      grid[placed.r][placed.c].rot = diceRots[i];
-      calcScore();
-    }
+    if (placed) { grid[placed.r][placed.c].rot = diceRots[i]; calcScore(); }
   }
   updateDicePanel();
-  buildGrid(); // refresh valid-cell highlights whenever die changes
+  buildGrid();
 };
 
 // ─────────────────────────────────────────────
@@ -713,42 +495,36 @@ function startRound(d1, d2) {
   dicePlaced = [false, false];
   placedThisRound = [];
   activeDie = 0;
-  // Vibrate to signal new dice are ready
   if (!myStuck) navigator.vibrate?.([80, 40, 80]);
-  // Reset confirm button state
   const btn = document.getElementById('confirm-btn');
   btn.textContent = 'Confirm ✓';
   btn.classList.remove('done');
   updateDicePanel();
   updateConfirmBtn();
   buildGrid();
+  if (isSolo) saveGame();
 }
 
 window.confirmPlacement = async function() {
   if (myStuck) return;
   const score = calcScore();
-
-  // Check if player can still move next round
   const stuck = !canPlayerMove(grid);
 
   if (isSolo) {
     myStuck = stuck;
     updateStuckUI();
     round++;
-    const maxR = sheetCfg.maxRounds;
     document.getElementById('round-display').textContent = round + 1;
-    if (stuck || round >= maxR) {
+    if (stuck || round >= sheetCfg.maxRounds) {
       clearSave();
-      showResults([{name: myName, score, stuck}]);
+      showResults([{ name: myName, score, stuck }]);
     } else {
       const dice = rollDice();
       startRound(dice.d1, dice.d2);
-      saveGame();
     }
     return;
   }
 
-  // Multiplayer: write to Firebase
   const playerRef = ref(db, `rooms/${roomCode}/players/${myId}`);
   await update(playerRef, { confirmed: true, score, stuck });
   const btn = document.getElementById('confirm-btn');
@@ -761,10 +537,9 @@ window.confirmPlacement = async function() {
 // STUCK / NO MOVES
 // ─────────────────────────────────────────────
 function updateStuckUI() {
-  const banner = document.getElementById('stuck-banner');
-  banner.style.display = myStuck ? 'block' : 'none';
-  document.getElementById('dice-panel').style.display = myStuck ? 'none' : 'block';
-  document.getElementById('confirm-btn').style.display = myStuck ? 'none' : 'block';
+  document.getElementById('stuck-banner').style.display = myStuck ? 'block' : 'none';
+  document.getElementById('dice-panel').style.display   = myStuck ? 'none'  : 'block';
+  document.getElementById('confirm-btn').style.display  = myStuck ? 'none'  : 'block';
 }
 
 // ─────────────────────────────────────────────
@@ -776,19 +551,15 @@ function showScreen(id) {
 }
 
 // ─────────────────────────────────────────────
-// INIT GRID STATE
+// GRID INIT
 // ─────────────────────────────────────────────
 function initLocalGame(sheet) {
   sheetCfg = SHEETS[sheet];
   const { rows, cols } = sheetCfg;
-  grid = Array.from({length: rows}, () => Array(cols).fill(null));
-  // Place pre-placed pieces
-  for (const pp of sheetCfg.prePlaced) {
+  grid = Array.from({ length: rows }, () => Array(cols).fill(null));
+  for (const pp of sheetCfg.prePlaced)
     grid[pp.r][pp.c] = { type: pp.type, rot: pp.rot, prePlaced: true };
-  }
-  myScore = 0;
-  myStuck = false;
-  round = 0;
+  myScore = 0; myStuck = false; round = 0;
   document.getElementById('round-display').textContent = 1;
   document.getElementById('score-display').textContent = 0;
   updateStuckUI();
@@ -808,28 +579,21 @@ window.startSolo = function() {
 };
 
 // ─────────────────────────────────────────────
-// MULTIPLAYER — CREATE ROOM
+// MULTIPLAYER — CREATE / JOIN
 // ─────────────────────────────────────────────
 window.createRoom = async function() {
   if (!firebaseReady) { showToast('Firebase not configured — try Solo mode'); return; }
   myName = document.getElementById('player-name').value.trim();
   if (!myName) { showToast('Enter your name first'); return; }
   isHost = true; isSolo = false;
-
   roomCode = randomCode();
   roomRef  = ref(db, `rooms/${roomCode}`);
   await set(roomRef, {
-    sheet: selectedSheet,
-    round: 0,
+    sheet: selectedSheet, round: 0,
     maxRounds: SHEETS[selectedSheet].maxRounds,
-    phase: 'waiting',
-    dice: { d1: null, d2: null },
-    host: myId,
-    players: {
-      [myId]: { name: myName, score: 0, confirmed: false, stuck: false }
-    }
+    phase: 'waiting', dice: { d1: null, d2: null }, host: myId,
+    players: { [myId]: { name: myName, score: 0, confirmed: false, stuck: false } }
   });
-
   document.getElementById('display-code').textContent = roomCode;
   document.getElementById('start-btn').style.display = 'block';
   showScreen('waiting');
@@ -837,28 +601,20 @@ window.createRoom = async function() {
   listenRoom();
 };
 
-// ─────────────────────────────────────────────
-// MULTIPLAYER — JOIN ROOM
-// ─────────────────────────────────────────────
 window.joinRoom = async function() {
   if (!firebaseReady) { showToast('Firebase not configured — try Solo mode'); return; }
   myName = document.getElementById('player-name').value.trim();
   if (!myName) { showToast('Enter your name first'); return; }
   const code = document.getElementById('join-code').value.trim().toUpperCase();
   if (code.length !== 4) { showToast('Enter a 4-letter room code'); return; }
-
   roomCode = code;
   roomRef  = ref(db, `rooms/${roomCode}`);
   const snap = await get(roomRef);
   if (!snap.exists()) { showToast('Room not found'); return; }
-
-  const data = snap.val();
-  if (data.phase !== 'waiting') { showToast('Game already started'); return; }
-
+  if (snap.val().phase !== 'waiting') { showToast('Game already started'); return; }
   isHost = false; isSolo = false;
   await update(ref(db, `rooms/${roomCode}/players/${myId}`),
     { name: myName, score: 0, confirmed: false, stuck: false });
-
   document.getElementById('display-code').textContent = roomCode;
   document.getElementById('start-btn').style.display = 'none';
   showScreen('waiting');
@@ -881,8 +637,7 @@ function listenRoom() {
     }
 
     if (data.phase === 'playing') {
-      if (document.getElementById('game').classList.contains('active') === false) {
-        // Just entered game
+      if (!document.getElementById('game').classList.contains('active')) {
         initLocalGame(data.sheet);
         showScreen('game');
       }
@@ -890,30 +645,22 @@ function listenRoom() {
       document.getElementById('round-display').textContent = round + 1;
       renderMiniPlayers(players);
 
-      // New dice
-      if (data.dice?.d1 && data.dice?.d2) {
-        const current = diceTypes;
-        if (current[0] !== data.dice.d1 || current[1] !== data.dice.d2) {
-          // New round dice arrived
-          startRound(data.dice.d1, data.dice.d2);
-          // If I'm stuck, auto-confirm
-          if (myStuck) autoConfirm();
-        }
+      if (data.dice?.d1 && data.dice?.d2 &&
+          (diceTypes[0] !== data.dice.d1 || diceTypes[1] !== data.dice.d2)) {
+        startRound(data.dice.d1, data.dice.d2);
+        if (myStuck) autoConfirm();
       }
 
-      // Check if all confirmed → host advances round
       if (isHost) {
         const allConfirmed = Object.values(players).every(p => p.confirmed || p.stuck);
-        if (allConfirmed && data.dice?.d1) {
-          advanceRound(data, players);
-        }
+        if (allConfirmed && data.dice?.d1) advanceRound(data, players);
       }
     }
 
     if (data.phase === 'ended') {
       const sorted = Object.entries(players)
-        .map(([id, p]) => ({ name: p.name, score: p.score, stuck: p.stuck }))
-        .sort((a,b) => b.score - a.score);
+        .map(([, p]) => ({ name: p.name, score: p.score, stuck: p.stuck }))
+        .sort((a, b) => b.score - a.score);
       showResults(sorted);
     }
   });
@@ -926,65 +673,48 @@ async function autoConfirm() {
 
 async function advanceRound(data, players) {
   const nextRound = data.round + 1;
-  const maxR = data.maxRounds;
-
-  // Check if game is over
-  const allStuck = Object.values(players).every(p => p.stuck);
-  if (nextRound >= maxR || allStuck) {
+  const allStuck  = Object.values(players).every(p => p.stuck);
+  if (nextRound >= data.maxRounds || allStuck) {
     await update(roomRef, { phase: 'ended' });
     return;
   }
-
-  // Reset confirmed for all players
   const updates = {};
-  for (const pid of Object.keys(players)) {
-    updates[`players/${pid}/confirmed`] = players[pid].stuck ? true : false;
-  }
+  for (const pid of Object.keys(players))
+    updates[`players/${pid}/confirmed`] = players[pid].stuck || false;
   const dice = rollDice();
-  updates.round = nextRound;
-  updates['dice/d1'] = dice.d1;
-  updates['dice/d2'] = dice.d2;
-  await update(roomRef, updates);
+  await update(roomRef, { ...updates, round: nextRound, 'dice/d1': dice.d1, 'dice/d2': dice.d2 });
 }
 
-// ─────────────────────────────────────────────
-// START GAME (host)
-// ─────────────────────────────────────────────
 window.startGame = async function() {
   const dice = rollDice();
-  await update(roomRef, {
-    phase: 'playing',
-    round: 0,
-    'dice/d1': dice.d1,
-    'dice/d2': dice.d2,
-  });
+  await update(roomRef, { phase: 'playing', round: 0, 'dice/d1': dice.d1, 'dice/d2': dice.d2 });
 };
 
 // ─────────────────────────────────────────────
-// WAITING ROOM RENDER
+// PLAYER RENDERING
 // ─────────────────────────────────────────────
+function avatarHTML(name, idx, cls) {
+  return `<div class="${cls}" style="background:${PLAYER_COLORS[idx % PLAYER_COLORS.length]}">${name[0].toUpperCase()}</div>`;
+}
+
 function renderWaitingPlayers(players) {
-  const list = document.getElementById('waiting-players');
-  const count = document.getElementById('player-count');
   const entries = Object.entries(players);
-  count.textContent = entries.length;
-  list.innerHTML = entries.map(([id, p], i) => `
+  document.getElementById('player-count').textContent = entries.length;
+  document.getElementById('waiting-players').innerHTML = entries.map(([id, p], i) => `
     <div class="player-item">
-      <div class="player-avatar" style="background:${PLAYER_COLORS[i % PLAYER_COLORS.length]}">${p.name[0].toUpperCase()}</div>
+      ${avatarHTML(p.name, i, 'player-avatar')}
       <div class="player-name">${p.name}</div>
       ${id === myId ? '<div class="player-badge">You</div>' : ''}
-    </div>
-  `).join('');
+    </div>`).join('');
 }
 
 function renderMiniPlayers(players) {
-  const mini = document.getElementById('players-mini');
-  mini.innerHTML = Object.entries(players).map(([id, p], i) => {
-    const icon = p.stuck ? '🚫' : (p.confirmed ? '✓' : '…');
-    const color = PLAYER_COLORS[i % PLAYER_COLORS.length];
+  document.getElementById('players-mini').innerHTML = Object.entries(players).map(([id, p], i) => {
+    const icon  = p.stuck ? '🚫' : p.confirmed ? '✓' : '…';
+    const color = p.confirmed ? '#4caf50' : p.stuck ? '#e94560' : '#888';
     return `<div class="mini-player">
-      <div class="mini-avatar" style="background:${color}">${p.name[0].toUpperCase()}</div>
-      <span class="mini-check" style="color:${p.confirmed?'#4caf50':p.stuck?'#e94560':'#888'}">${icon}</span>
+      ${avatarHTML(p.name, i, 'mini-avatar')}
+      <span class="mini-check" style="color:${color}">${icon}</span>
     </div>`;
   }).join('');
 }
@@ -994,22 +724,18 @@ function renderMiniPlayers(players) {
 // ─────────────────────────────────────────────
 function showResults(sorted) {
   showScreen('results');
-  const list = document.getElementById('results-list');
-  list.innerHTML = sorted.map((p, i) => `
+  const medals = ['🥇','🥈','🥉'];
+  document.getElementById('results-list').innerHTML = sorted.map((p, i) => `
     <div class="result-row">
-      <div class="result-rank ${i===0?'gold':''}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>
+      <div class="result-rank ${i===0?'gold':''}">${medals[i] ?? i+1}</div>
       <div class="result-name">${p.name}${p.stuck?' <span class="result-note">(finished early)</span>':''}</div>
       <div class="result-score">${p.score}</div>
-    </div>
-  `).join('');
-
-  // Solo rating
+    </div>`).join('');
   const soloBox = document.getElementById('solo-rating-box');
   if (sorted.length === 1) {
+    const rating = SOLO_RATINGS.find(r => sorted[0].score >= r.min && sorted[0].score <= r.max);
+    document.getElementById('solo-rating-text').textContent = rating?.label ?? '—';
     soloBox.style.display = 'block';
-    const sc = sorted[0].score;
-    const rating = SOLO_RATINGS.find(r => sc >= r.min && sc <= r.max);
-    document.getElementById('solo-rating-text').textContent = rating ? rating.label : '—';
   } else {
     soloBox.style.display = 'none';
   }
@@ -1026,6 +752,85 @@ window.leaveRoom = function() {
   showScreen('lobby');
 };
 
+window.cancelGame = function() {
+  if (!confirm('Leave the game? Your progress will be lost.')) return;
+  if (roomListener) { off(roomRef, 'value', roomListener); roomListener = null; }
+  if (!isSolo && roomRef) {
+    isHost ? remove(roomRef) : remove(ref(db, `rooms/${roomCode}/players/${myId}`));
+  }
+  sheetCfg = null;
+  showScreen('lobby');
+};
+
+// ─────────────────────────────────────────────
+// GAME STATE PERSISTENCE (solo)
+// ─────────────────────────────────────────────
+function saveGame() {
+  if (!isSolo || !sheetCfg) return;
+  const sheet = Object.keys(SHEETS).find(k => SHEETS[k] === sheetCfg);
+  localStorage.setItem(SAVE_KEY, JSON.stringify(
+    { sheet, grid, round, myScore, myStuck, diceTypes, diceRots, dicePlaced, placedThisRound, activeDie }
+  ));
+}
+function clearSave()  { localStorage.removeItem(SAVE_KEY); }
+function hasSave()    { return !!localStorage.getItem(SAVE_KEY); }
+
+window.resumeGame = function() {
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (!raw) return false;
+  try {
+    const s = JSON.parse(raw);
+    isSolo = true;
+    myName = document.getElementById('player-name').value.trim() || localStorage.getItem(NAME_KEY) || 'Player';
+    sheetCfg = SHEETS[s.sheet];
+    ({ grid, round, myScore, myStuck, diceTypes, diceRots, dicePlaced, activeDie } = s);
+    placedThisRound = s.placedThisRound || [];
+    document.getElementById('round-display').textContent = round + 1;
+    document.getElementById('score-display').textContent = myScore;
+    updateStuckUI();
+    updateDicePanel();
+    updateConfirmBtn();
+    buildGrid();
+    document.getElementById('players-mini').innerHTML = '';
+    showScreen('game');
+    return true;
+  } catch { clearSave(); return false; }
+};
+
+window.discardSave = function() {
+  clearSave();
+  document.getElementById('resume-banner').style.display = 'none';
+};
+
+// ─────────────────────────────────────────────
+// QR CODE
+// ─────────────────────────────────────────────
+function showQR() {
+  const url = encodeURIComponent(`${location.origin}${location.pathname}?join=${roomCode}`);
+  const img = document.getElementById('qr-img');
+  img.src = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${url}&bgcolor=16213e&color=53d8fb&margin=10`;
+  img.style.display = 'block';
+  document.getElementById('qr-hint').style.display = 'block';
+}
+
+window.copyCode = function() {
+  navigator.clipboard?.writeText(roomCode).then(() => showToast('Code copied!'));
+};
+
+// ─────────────────────────────────────────────
+// UTILITIES
+// ─────────────────────────────────────────────
+function randomCode() {
+  return Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.floor(Math.random() * 24)]).join('');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
 // ─────────────────────────────────────────────
 // SHEET SELECTION
 // ─────────────────────────────────────────────
@@ -1038,133 +843,29 @@ document.querySelectorAll('.sheet-btn').forEach(btn => {
 });
 
 // ─────────────────────────────────────────────
-// UTILITIES
+// INIT
 // ─────────────────────────────────────────────
-function randomCode() {
-  return Array.from({length:4}, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.floor(Math.random()*24)]).join('');
-}
-
-window.copyCode = function() {
-  navigator.clipboard?.writeText(roomCode).then(() => showToast('Code copied!'));
-};
-
-function showQR() {
-  const joinURL = `${location.origin}${location.pathname}?join=${roomCode}`;
-  const encoded = encodeURIComponent(joinURL);
-  const img = document.getElementById('qr-img');
-  img.src = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encoded}&bgcolor=16213e&color=53d8fb&margin=10`;
-  img.style.display = 'block';
-  document.getElementById('qr-hint').style.display = 'block';
-}
-
-window.cancelGame = function() {
-  if (!confirm('Leave the game? Your progress will be lost.')) return;
-  if (roomListener) { off(roomRef, 'value', roomListener); roomListener = null; }
-  if (!isSolo && roomRef) {
-    if (isHost) {
-      remove(roomRef);
-    } else {
-      remove(ref(db, `rooms/${roomCode}/players/${myId}`));
-    }
-  }
-  sheetCfg = null;
-  showScreen('lobby');
-};
-
-// ─────────────────────────────────────────────
-// GAME STATE PERSISTENCE (solo — survive refresh)
-// ─────────────────────────────────────────────
-const SAVE_KEY = 'pipeline_solo_save';
-
-function saveGame() {
-  if (!isSolo || !sheetCfg) return;
-  localStorage.setItem(SAVE_KEY, JSON.stringify({
-    sheet: Object.keys(SHEETS).find(k => SHEETS[k] === sheetCfg),
-    grid, round, myScore, myStuck,
-    diceTypes, diceRots, dicePlaced, placedThisRound, activeDie
-  }));
-}
-
-function clearSave() {
-  localStorage.removeItem(SAVE_KEY);
-}
-
-function hasSave() {
-  return !!localStorage.getItem(SAVE_KEY);
-}
-
-function resumeGame() {
-  const raw = localStorage.getItem(SAVE_KEY);
-  if (!raw) return false;
-  try {
-    const s = JSON.parse(raw);
-    isSolo = true;
-    myName = document.getElementById('player-name').value.trim() || localStorage.getItem(NAME_KEY) || 'Player';
-    sheetCfg = SHEETS[s.sheet];
-    grid = s.grid;
-    round = s.round;
-    myScore = s.myScore;
-    myStuck = s.myStuck;
-    diceTypes = s.diceTypes;
-    diceRots = s.diceRots;
-    dicePlaced = s.dicePlaced;
-    placedThisRound = s.placedThisRound || [];
-    activeDie = s.activeDie || 0;
-    document.getElementById('round-display').textContent = round + 1;
-    document.getElementById('score-display').textContent = myScore;
-    updateStuckUI();
-    updateDicePanel();
-    updateConfirmBtn();
-    buildGrid();
-    document.getElementById('players-mini').innerHTML = '';
-    showScreen('game');
-    return true;
-  } catch(e) { clearSave(); return false; }
-}
-
-// Auto-save after every confirm and round advance
-const _origConfirm = window.confirmPlacement;
-
-// ─────────────────────────────────────────────
-// PERSIST PLAYER NAME
-// ─────────────────────────────────────────────
-const NAME_KEY = 'pipeline_player_name';
+// Persist player name
 const nameInput = document.getElementById('player-name');
 const savedName = localStorage.getItem(NAME_KEY);
 if (savedName) nameInput.value = savedName;
-nameInput.addEventListener('input', () => {
-  localStorage.setItem(NAME_KEY, nameInput.value.trim());
-});
+nameInput.addEventListener('input', () => localStorage.setItem(NAME_KEY, nameInput.value.trim()));
 
-// ─────────────────────────────────────────────
-// Auto-fill join code from ?join=XXXX URL param
-// ─────────────────────────────────────────────
-(function() {
-  const params = new URLSearchParams(location.search);
-  const joinCode = params.get('join');
-  if (joinCode) {
-    document.getElementById('join-code').value = joinCode.toUpperCase();
-    setTimeout(() => {
-      document.getElementById('join-code').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 300);
-  }
-})();
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
+// Auto-fill join code from ?join= URL param
+const joinParam = new URLSearchParams(location.search).get('join');
+if (joinParam) {
+  document.getElementById('join-code').value = joinParam.toUpperCase();
+  setTimeout(() => document.getElementById('join-code').scrollIntoView({ behavior:'smooth', block:'center' }), 300);
 }
+
+// Show resume banner if a saved solo game exists
+if (hasSave()) document.getElementById('resume-banner').style.display = 'flex';
 
 window.addEventListener('resize', () => { if (sheetCfg) buildGrid(); });
 
-// Show resume banner if a saved solo game exists
-window.discardSave = function() {
-  clearSave();
-  document.getElementById('resume-banner').style.display = 'none';
-};
-if (hasSave()) document.getElementById('resume-banner').style.display = 'flex';
+// Register service worker for offline caching
+if ('serviceWorker' in navigator)
+  navigator.serviceWorker.register('sw.js').catch(console.warn);
 </script>
 </body>
 </html>
