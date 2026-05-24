@@ -449,13 +449,25 @@ function buildGrid() {
       const cell = grid[r][c];
       const cx = G + c * CELL, cy = G + r * CELL;
 
-      // Clickable overlay for empty cells
       if (!cell) {
+        // A cell is valid only if adjacent to a pre-existing (not placed this round) piece
+        const adjToExisting = isAdjacentToPreExisting(r, c);
+        const blocked = !adjToExisting;
+
+        // Subtle hint tint for valid adjacent cells
+        if (adjToExisting)
+          html += `<rect x="${cx+1}" y="${cy+1}" width="${CELL-2}" height="${CELL-2}" fill="rgba(83,216,251,.07)" rx="2"/>`;
+
+        // Dim overlay for blocked cells
+        if (blocked)
+          html += `<rect x="${cx}" y="${cy}" width="${CELL}" height="${CELL}" fill="rgba(0,0,0,.30)" rx="2"/>`;
+
         html += `<rect x="${cx}" y="${cy}" width="${CELL}" height="${CELL}"
           fill="transparent" rx="2"
           data-r="${r}" data-c="${c}"
+          data-blocked="${blocked}"
           class="cell-click"
-          style="cursor:pointer"/>`;
+          style="cursor:${blocked ? 'not-allowed' : 'pointer'}"/>`;
       }
 
       if (cell) {
@@ -513,6 +525,12 @@ function cellClicked(r, c) {
   }
   if (grid[r][c]) return; // occupied
 
+  // Both pieces must be adjacent to a pre-existing piece
+  if (!isAdjacentToPreExisting(r, c)) {
+    showToast('⚠️ Must connect to existing pipe');
+    return;
+  }
+
   // Place the piece
   dicePlaced[activeDie] = true;
   grid[r][c] = { type: diceTypes[activeDie], rot: diceRots[activeDie] };
@@ -531,13 +549,6 @@ function cellClicked(r, c) {
 // ─────────────────────────────────────────────
 // VALIDATION
 // ─────────────────────────────────────────────
-function isAdjacentToExisting(r, c) {
-  const rows = sheetCfg.rows, cols = sheetCfg.cols;
-  return [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].some(([nr,nc]) =>
-    nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] !== null
-  );
-}
-
 function canPlayerMove(g) {
   const rows = sheetCfg.rows, cols = sheetCfg.cols;
   for (let r = 0; r < rows; r++)
@@ -553,17 +564,18 @@ function isAdjacentOnGrid(g, r, c, rows, cols) {
 }
 
 function placementValid() {
-  if (placedThisRound.length < 2) return false;
-  // at least one placed piece must be adjacent to a pre-existing piece
-  // "pre-existing" = any piece NOT from this round
+  // Both pieces must be placed; adjacency is already enforced at placement time
+  return placedThisRound.length === 2;
+}
+
+// Helper: is (r,c) adjacent to any piece NOT placed this round?
+function isAdjacentToPreExisting(r, c) {
+  const rows = sheetCfg.rows, cols = sheetCfg.cols;
   const thisRoundCells = new Set(placedThisRound.map(p => `${p.r},${p.c}`));
-  return placedThisRound.some(p => {
-    const rows = sheetCfg.rows, cols = sheetCfg.cols;
-    return [[p.r-1,p.c],[p.r+1,p.c],[p.r,p.c-1],[p.r,p.c+1]].some(([nr,nc]) => {
-      if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) return false;
-      const cell = grid[nr][nc];
-      return cell && !thisRoundCells.has(`${nr},${nc}`);
-    });
+  return [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].some(([nr,nc]) => {
+    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) return false;
+    const cell = grid[nr][nc];
+    return cell && !thisRoundCells.has(`${nr},${nc}`);
   });
 }
 
@@ -682,6 +694,8 @@ function startRound(d1, d2) {
   dicePlaced = [false, false];
   placedThisRound = [];
   activeDie = 0;
+  // Vibrate to signal new dice are ready
+  if (!myStuck) navigator.vibrate?.([80, 40, 80]);
   updateDicePanel();
   updateConfirmBtn();
   buildGrid();
@@ -1032,13 +1046,25 @@ window.cancelGame = function() {
   showScreen('lobby');
 };
 
+// ─────────────────────────────────────────────
+// PERSIST PLAYER NAME
+// ─────────────────────────────────────────────
+const NAME_KEY = 'pipeline_player_name';
+const nameInput = document.getElementById('player-name');
+const savedName = localStorage.getItem(NAME_KEY);
+if (savedName) nameInput.value = savedName;
+nameInput.addEventListener('input', () => {
+  localStorage.setItem(NAME_KEY, nameInput.value.trim());
+});
+
+// ─────────────────────────────────────────────
 // Auto-fill join code from ?join=XXXX URL param
+// ─────────────────────────────────────────────
 (function() {
   const params = new URLSearchParams(location.search);
   const joinCode = params.get('join');
   if (joinCode) {
     document.getElementById('join-code').value = joinCode.toUpperCase();
-    // Scroll to join card after a moment
     setTimeout(() => {
       document.getElementById('join-code').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 300);
