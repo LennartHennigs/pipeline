@@ -140,16 +140,19 @@ function getOpenings(type, rot) {
   return result;
 }
 
-function isValidPlacementOnGrid(g, r, c) {
+function isValidPlacementOnGrid(g, r, c, type, rot) {
   const rows = g.length, cols = g[0].length;
-  for (const [dr, dc] of NEIGHBORS) {
+  for (const dir of getOpenings(type, rot)) {
+    const [dr, dc] = DIR_RC[dir];
     const nr = r + dr, nc = c + dc;
-    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && g[nr][nc]) return true;
+    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+    const nb = g[nr][nc];
+    if (nb && getOpenings(nb.type, nb.rot).has(OPP[dir])) return true;
   }
   return false;
 }
 
-const isValidPlacement = (r, c) => isValidPlacementOnGrid(grid, r, c);
+const isValidPlacement = (r, c, type, rot) => isValidPlacementOnGrid(grid, r, c, type, rot);
 
 // ── SVG pipe renderer ──
 
@@ -189,6 +192,7 @@ function buildGrid() {
     `<text x="${x}" y="${y}" text-anchor="middle" font-size="${conn?15:13}" font-weight="${conn?900:700}" fill="${edgeColor(v,conn)}">${v}</text>`;
   const bothPlaced = dicePlaced[0] && dicePlaced[1];
   const curType = bothPlaced ? null : diceTypes[activeDie];
+  const curRot  = bothPlaced ? 0   : diceRots[activeDie];
   let html = `<rect x="${G}" y="${G}" width="${cols*CELL}" height="${rows*CELL}" fill="#0f2a4a" rx="4"/>`;
 
   for (let r = 0; r <= rows; r++)
@@ -214,7 +218,7 @@ function buildGrid() {
       if (cell) {
         html += `<g transform="translate(${cx},${cy})">${pipePath(cell.type, cell.rot, cell.prePlaced ? '#666' : '#888')}</g>`;
       } else {
-        const valid = curType ? isValidPlacement(r, c) : false;
+        const valid = curType ? isValidPlacement(r, c, curType, curRot) : false;
         const clickable = showHints ? valid : (curType && !bothPlaced);
         html += (showHints && valid)
           ? `<rect x="${cx+1}" y="${cy+1}" width="${CELL-2}" height="${CELL-2}" fill="rgba(83,216,251,.07)" rx="2"/>`
@@ -254,8 +258,8 @@ function cellClicked(r, c) {
     return;
   }
   if (grid[r][c]) return;
-  if (!isValidPlacement(r, c)) {
-    showToast('⚠️ Must be adjacent to an existing pipe');
+  if (!isValidPlacement(r, c, diceTypes[activeDie], diceRots[activeDie])) {
+    showToast('⚠️ Piece must connect to a neighbour');
     return;
   }
   dicePlaced[activeDie] = true;
@@ -273,15 +277,18 @@ function cellClicked(r, c) {
 
 function canPlayerMove(g) {
   const rows = g.length, cols = g[0].length;
-  for (let r1 = 0; r1 < rows; r1++)
-    for (let c1 = 0; c1 < cols; c1++) {
-      if (g[r1][c1] || !isValidPlacementOnGrid(g, r1, c1)) continue;
-      const g2 = g.map(row => [...row]);
-      g2[r1][c1] = { type: 'placeholder', rot: 0 };
-      for (let r2 = 0; r2 < rows; r2++)
-        for (let c2 = 0; c2 < cols; c2++)
-          if (!g2[r2][c2] && isValidPlacementOnGrid(g2, r2, c2)) return true;
-    }
+  const [t1, t2] = diceTypes;
+  for (let rot1 = 0; rot1 < 4; rot1++)
+    for (let r1 = 0; r1 < rows; r1++)
+      for (let c1 = 0; c1 < cols; c1++) {
+        if (g[r1][c1] || !isValidPlacementOnGrid(g, r1, c1, t1, rot1)) continue;
+        const g2 = g.map(row => [...row]);
+        g2[r1][c1] = { type: t1, rot: rot1 };
+        for (let rot2 = 0; rot2 < 4; rot2++)
+          for (let r2 = 0; r2 < rows; r2++)
+            for (let c2 = 0; c2 < cols; c2++)
+              if (!g2[r2][c2] && isValidPlacementOnGrid(g2, r2, c2, t2, rot2)) return true;
+      }
   return false;
 }
 
