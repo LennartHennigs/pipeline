@@ -79,12 +79,18 @@ button:active { transform: scale(.97); opacity: .85; }
 /* Dice panel */
 .dice-panel { background: var(--surface); border-top: 1px solid rgba(255,255,255,.08); padding: 10px 14px; flex-shrink: 0; }
 .dice-row { display: flex; gap: 10px; }
-.die-card { flex: 1; background: var(--card); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; border: 2px solid transparent; transition: border-color .15s; cursor: pointer; position: relative; }
+.die-card { flex: 1; background: var(--card); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2px solid transparent; transition: border-color .15s; cursor: pointer; position: relative; aspect-ratio: 1; }
 .die-card.selected { border-color: var(--accent2); background: rgba(83,216,251,.1); }
 .die-card.placed { border-color: var(--green); background: rgba(76,175,80,.1); opacity: .7; }
-.die-svg-wrap { width: 64px; height: 64px; }
+.die-svg-wrap { width: 100%; aspect-ratio: 1; }
 .die-placed-mark { position: absolute; top: 4px; right: 6px; font-size: .9rem; color: var(--green); }
-.die-rotate-hint { font-size: .6rem; color: var(--muted); margin-top: 2px; }
+
+/* Flash animation — replaces vibration (not supported on iOS) */
+@keyframes dice-flash {
+  0%   { background: rgba(83,216,251,.35); }
+  100% { background: var(--surface); }
+}
+.dice-flash { animation: dice-flash 0.5s ease-out; }
 
 /* Footer */
 .game-footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface); border-top: 1px solid rgba(255,255,255,.08); flex-shrink: 0; }

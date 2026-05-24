@@ -1,4 +1,4 @@
-const CACHE = 'pipeline-v1';
+const CACHE = 'pipeline-v2';
 const BASE = self.registration.scope;
 
 self.addEventListener('install', e => {
