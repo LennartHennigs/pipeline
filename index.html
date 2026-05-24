@@ -86,12 +86,10 @@
     <div class="dice-row">
       <div class="die-card" id="die0" onclick="dieCardClick(0)">
         <div class="die-svg-wrap" id="die0-svg"></div>
-        <div class="die-rotate-hint" id="die0-hint">tap to select</div>
         <div class="die-placed-mark" id="die0-mark" style="display:none">✓</div>
       </div>
       <div class="die-card" id="die1" onclick="dieCardClick(1)">
         <div class="die-svg-wrap" id="die1-svg"></div>
-        <div class="die-rotate-hint" id="die1-hint">tap to select</div>
         <div class="die-placed-mark" id="die1-mark" style="display:none">✓</div>
       </div>
     </div>
@@ -126,13 +124,13 @@ import { getDatabase, ref, set, get, update, onValue, off, remove }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
 const FIREBASE_CONFIG = {
-  apiKey:            "AIzaSyA8_C7USI23YHRdDWjOuKbLrUN8HYgRHD0",
-  authDomain:        "pipeline-cdf6c.firebaseapp.com",
-  databaseURL:       "https://pipeline-cdf6c-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId:         "pipeline-cdf6c",
-  storageBucket:     "pipeline-cdf6c.firebasestorage.app",
-  messagingSenderId: "434935715063",
-  appId:             "1:434935715063:web:aca44e3a9e5fd92aed6ff2"
+  apiKey:            "",
+  authDomain:        "",
+  databaseURL:       "",
+  projectId:         "",
+  storageBucket:     "",
+  messagingSenderId: "",
+  appId:             ""
 };
 
 let db, firebaseReady = false;
@@ -199,7 +197,6 @@ const NAME_KEY = 'pipeline_player_name';
 const DIE_EL = [0,1].map(i => ({
   card: document.getElementById(`die${i}`),
   svg:  document.getElementById(`die${i}-svg`),
-  hint: document.getElementById(`die${i}-hint`),
   mark: document.getElementById(`die${i}-mark`),
 }));
 
@@ -270,9 +267,9 @@ function pipePath(type, rot, color, size = CELL) {
   return segs.join('');
 }
 
-function makeDieSVG(type, rot, color, size = 64) {
+function makeDieSVG(type, rot, color) {
   if (!type) return '';
-  return `<svg viewBox="0 0 ${CELL} ${CELL}" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">${pipePath(type, rot, color)}</svg>`;
+  return `<svg viewBox="0 0 ${CELL} ${CELL}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">${pipePath(type, rot, color)}</svg>`;
 }
 
 // ─────────────────────────────────────────────
@@ -292,7 +289,9 @@ function buildGrid() {
   svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
 
   const edgeColor = v => v === 5 ? '#e94560' : v === 3 ? '#ffd700' : '#666';
-  const curType = diceTypes[activeDie], curRot = diceRots[activeDie];
+  const bothPlaced = dicePlaced[0] && dicePlaced[1];
+  const curType = bothPlaced ? null : diceTypes[activeDie];
+  const curRot  = bothPlaced ? 0   : diceRots[activeDie];
   let html = `<rect x="${G}" y="${G}" width="${cols*CELL}" height="${rows*CELL}" fill="#0f2a4a" rx="4"/>`;
 
   // Grid lines
@@ -434,14 +433,8 @@ function calcScore() {
 function allOnesConnected() {
   const { rows, cols, topEdge, bottomEdge, leftEdge, rightEdge } = sheetCfg;
   for (let c = 0; c < cols; c++) {
-    if (topEdge[c]    === 1 && !grid[0][c]?.let?.(ce => getOpenings(ce.type,ce.rot).has('N'))) {
-      const ce = grid[0][c];
-      if (!ce || !getOpenings(ce.type, ce.rot).has('N')) return false;
-    }
-    if (bottomEdge[c] === 1) {
-      const ce = grid[rows-1][c];
-      if (!ce || !getOpenings(ce.type, ce.rot).has('S')) return false;
-    }
+    if (topEdge[c]    === 1) { const ce = grid[0][c];      if (!ce || !getOpenings(ce.type,ce.rot).has('N')) return false; }
+    if (bottomEdge[c] === 1) { const ce = grid[rows-1][c]; if (!ce || !getOpenings(ce.type,ce.rot).has('S')) return false; }
   }
   for (let r = 0; r < rows; r++) {
     if (leftEdge[r]  === 1) { const ce = grid[r][0];       if (!ce || !getOpenings(ce.type,ce.rot).has('W')) return false; }
@@ -455,13 +448,11 @@ function allOnesConnected() {
 // ─────────────────────────────────────────────
 function updateDicePanel() {
   for (let i = 0; i < 2; i++) {
-    const { card, svg, hint, mark } = DIE_EL[i];
+    const { card, svg, mark } = DIE_EL[i];
     const isActive = i === activeDie, isPlaced = dicePlaced[i];
     const color = isPlaced ? '#4caf50' : isActive ? '#53d8fb' : '#888';
     svg.innerHTML  = makeDieSVG(diceTypes[i], diceRots[i], color);
     mark.style.display = isPlaced ? 'block' : 'none';
-    hint.textContent   = isPlaced ? '' : isActive ? 'tap to rotate ↺' : 'tap to select';
-    hint.style.color   = isActive ? 'var(--accent2)' : 'var(--muted)';
     card.className = 'die-card' + (isPlaced ? ' placed' : isActive ? ' selected' : '');
   }
 }
@@ -495,7 +486,12 @@ function startRound(d1, d2) {
   dicePlaced = [false, false];
   placedThisRound = [];
   activeDie = 0;
-  if (!myStuck) navigator.vibrate?.([80, 40, 80]);
+  if (!myStuck) {
+    const panel = document.getElementById('dice-panel');
+    panel.classList.remove('dice-flash');
+    void panel.offsetWidth; // force reflow to restart animation
+    panel.classList.add('dice-flash');
+  }
   const btn = document.getElementById('confirm-btn');
   btn.textContent = 'Confirm ✓';
   btn.classList.remove('done');
@@ -794,7 +790,12 @@ window.resumeGame = function() {
     document.getElementById('players-mini').innerHTML = '';
     showScreen('game');
     return true;
-  } catch { clearSave(); return false; }
+  } catch(e) {
+    console.warn('Failed to resume save:', e);
+    clearSave();
+    document.getElementById('resume-banner').style.display = 'none';
+    return false;
+  }
 };
 
 window.discardSave = function() {
