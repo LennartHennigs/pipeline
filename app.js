@@ -82,7 +82,6 @@ const EL = {
   stuckBanner:  document.getElementById('stuck-banner'),
   dicePanel:    document.getElementById('dice-panel'),
   confirmBtn:   document.getElementById('confirm-btn'),
-  roundDisplay: document.getElementById('round-display'),
   scoreDisplay: document.getElementById('score-display'),
   gridSvg:      document.getElementById('grid-svg'),
   toast:        document.getElementById('toast'),
@@ -113,6 +112,10 @@ let activeDie      = 0;
 let myScore        = 0;
 let myStuck        = false;
 let round          = 0;
+let showHints      = true;
+let lastGameId     = -1;
+let lastRoomData   = null;
+let lastPlayers    = null;
 
 // ── Pipe logic ──
 
@@ -164,8 +167,8 @@ function makeDieSVG(type, rot, color) {
 function buildGrid() {
   if (!sheetCfg) return;
   const { rows, cols } = sheetCfg;
-  const G = 16;
-  const svgW = cols * CELL + 32, svgH = rows * CELL + 32;
+  const G = 22;
+  const svgW = cols * CELL + G*2, svgH = rows * CELL + G*2;
   const maxW = Math.min(window.innerWidth - 16, 360);
   const maxH = window.innerHeight - 280;
   const scale = Math.min(maxW / svgW, maxH / svgH, 1);
@@ -173,7 +176,10 @@ function buildGrid() {
   EL.gridSvg.setAttribute('height',  svgH * scale);
   EL.gridSvg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
 
-  const edgeColor = v => v === 5 ? '#e94560' : v === 3 ? '#ffd700' : '#666';
+  const edgeColor = (v, conn) => {
+    const base = v === 5 ? '#e94560' : v === 3 ? '#ffd700' : (conn ? '#aaa' : '#555');
+    return base;
+  };
   const bothPlaced = dicePlaced[0] && dicePlaced[1];
   const curType = bothPlaced ? null : diceTypes[activeDie];
   const curRot  = bothPlaced ? 0   : diceRots[activeDie];
@@ -185,12 +191,18 @@ function buildGrid() {
     html += `<line x1="${G+c*CELL}" y1="${G}" x2="${G+c*CELL}" y2="${G+rows*CELL}" stroke="rgba(255,255,255,.12)" stroke-width="1"/>`;
 
   for (let c = 0; c < cols; c++) {
-    html += `<text x="${G+c*CELL+HALF}" y="12" text-anchor="middle" font-size="11" font-weight="700" fill="${edgeColor(sheetCfg.topEdge[c])}">${sheetCfg.topEdge[c]}</text>`;
-    html += `<text x="${G+c*CELL+HALF}" y="${G+rows*CELL+13}" text-anchor="middle" font-size="11" font-weight="700" fill="${edgeColor(sheetCfg.bottomEdge[c])}">${sheetCfg.bottomEdge[c]}</text>`;
+    const tc = edgeConnected(grid[0][c], 'N');
+    const bc = edgeConnected(grid[rows-1][c], 'S');
+    const tv = sheetCfg.topEdge[c], bv = sheetCfg.bottomEdge[c];
+    html += `<text x="${G+c*CELL+HALF}" y="${G-8}" text-anchor="middle" font-size="${tc?15:13}" font-weight="${tc?900:700}" fill="${edgeColor(tv,tc)}">${tv}</text>`;
+    html += `<text x="${G+c*CELL+HALF}" y="${G+rows*CELL+16}" text-anchor="middle" font-size="${bc?15:13}" font-weight="${bc?900:700}" fill="${edgeColor(bv,bc)}">${bv}</text>`;
   }
   for (let r = 0; r < rows; r++) {
-    html += `<text x="11" y="${G+r*CELL+HALF+4}" text-anchor="middle" font-size="11" font-weight="700" fill="${edgeColor(sheetCfg.leftEdge[r])}">${sheetCfg.leftEdge[r]}</text>`;
-    html += `<text x="${G+cols*CELL+14}" y="${G+r*CELL+HALF+4}" text-anchor="middle" font-size="11" font-weight="700" fill="${edgeColor(sheetCfg.rightEdge[r])}">${sheetCfg.rightEdge[r]}</text>`;
+    const lc = edgeConnected(grid[r][0], 'W');
+    const rc = edgeConnected(grid[r][cols-1], 'E');
+    const lv = sheetCfg.leftEdge[r], rv = sheetCfg.rightEdge[r];
+    html += `<text x="${G-8}" y="${G+r*CELL+HALF+5}" text-anchor="middle" font-size="${lc?15:13}" font-weight="${lc?900:700}" fill="${edgeColor(lv,lc)}">${lv}</text>`;
+    html += `<text x="${G+cols*CELL+8}" y="${G+r*CELL+HALF+5}" text-anchor="middle" font-size="${rc?15:13}" font-weight="${rc?900:700}" fill="${edgeColor(rv,rc)}">${rv}</text>`;
   }
 
   for (let r = 0; r < rows; r++) {
@@ -201,10 +213,11 @@ function buildGrid() {
         html += `<g transform="translate(${cx},${cy})">${pipePath(cell.type, cell.rot, cell.prePlaced ? '#666' : '#4caf50')}</g>`;
       } else {
         const valid = curType ? isValidPlacement(r, c, curType, curRot) : false;
-        html += valid
+        const clickable = showHints ? valid : (curType && !bothPlaced);
+        html += (showHints && valid)
           ? `<rect x="${cx+1}" y="${cy+1}" width="${CELL-2}" height="${CELL-2}" fill="rgba(83,216,251,.07)" rx="2"/>`
           : `<rect x="${cx}" y="${cy}" width="${CELL}" height="${CELL}" fill="rgba(0,0,0,.28)" rx="2"/>`;
-        if (valid)
+        if (clickable)
           html += `<rect x="${cx}" y="${cy}" width="${CELL}" height="${CELL}" fill="transparent" rx="2" data-r="${r}" data-c="${c}" class="cell-click" style="cursor:pointer"/>`;
       }
     }
@@ -224,6 +237,7 @@ function undoPlace(idx) {
   dicePlaced[p.dieIdx] = false;
   grid[p.r][p.c] = null;
   placedThisRound.splice(idx, 1);
+  activeDie = p.dieIdx;   // restore focus to the die that was undone
   updateDicePanel();
   buildGrid();
   updateConfirmBtn();
@@ -366,9 +380,9 @@ function startRound(d1, d2) {
     EL.dicePanel.classList.remove('dice-flash');
     void EL.dicePanel.offsetWidth;
     EL.dicePanel.classList.add('dice-flash');
+    EL.confirmBtn.style.display = 'block';
+    EL.confirmBtn.textContent = 'Confirm ✓';
   }
-  EL.confirmBtn.textContent = 'Confirm ✓';
-  EL.confirmBtn.classList.remove('done');
   updateDicePanel();
   updateConfirmBtn();
   buildGrid();
@@ -384,7 +398,6 @@ window.confirmPlacement = async function() {
     myStuck = stuck;
     updateStuckUI();
     round++;
-    EL.roundDisplay.textContent = round + 1;
     if (stuck || round >= sheetCfg.maxRounds) {
       clearSave();
       showResults([{ name: myName, score, stuck }]);
@@ -396,9 +409,7 @@ window.confirmPlacement = async function() {
   }
 
   await updateMyPlayer({ confirmed: true, score, stuck });
-  EL.confirmBtn.disabled = true;
-  EL.confirmBtn.textContent = '✓ Done';
-  EL.confirmBtn.classList.add('done');
+  EL.confirmBtn.style.display = 'none';
 };
 
 // ── Stuck / no moves ──
@@ -425,7 +436,6 @@ function initLocalGame(sheet) {
   for (const pp of sheetCfg.prePlaced)
     grid[pp.r][pp.c] = { type: pp.type, rot: pp.rot, prePlaced: true };
   myScore = 0; myStuck = false; round = 0;
-  EL.roundDisplay.textContent = 1;
   EL.scoreDisplay.textContent = 0;
   updateStuckUI();
 }
@@ -435,6 +445,7 @@ function initLocalGame(sheet) {
 window.startSolo = function() {
   myName = EL.nameInput.value.trim() || 'Solo Player';
   isSolo = true;
+  showHints = document.getElementById('hints-toggle').checked;
   initLocalGame(selectedSheet);
   showScreen('game');
   EL.playersMini.innerHTML = '';
@@ -496,19 +507,24 @@ function listenRoom() {
     if (!snap.exists()) return;
     const data = snap.val();
     const players = data.players || {};
+    lastRoomData = data;
+    lastPlayers  = players;
 
     if (data.phase === 'waiting') {
       renderWaitingPlayers(players);
     }
 
     if (data.phase === 'playing') {
-      if (!document.getElementById('game').classList.contains('active')) {
+      const gameId = data.gameId ?? 0;
+      if (gameId !== lastGameId) {
+        lastGameId = gameId;
+        showHints = document.getElementById('hints-toggle').checked;
+        myStuck = false;
         initLocalGame(data.sheet);
         showScreen('game');
       }
       round = data.round;
-      EL.roundDisplay.textContent = round + 1;
-      renderMiniPlayers(players);
+      renderMiniPlayers(players, data.wins);
 
       if (data.dice?.d1 && data.dice?.d2 &&
           (diceTypes[0] !== data.dice.d1 || diceTypes[1] !== data.dice.d2)) {
@@ -523,8 +539,9 @@ function listenRoom() {
     }
 
     if (data.phase === 'ended') {
+      const wins = data.wins || {};
       const sorted = Object.entries(players)
-        .map(([, p]) => ({ name: p.name, score: p.score, stuck: p.stuck }))
+        .map(([id, p]) => ({ id, name: p.name, score: p.score, stuck: p.stuck, wins: wins[id] || 0 }))
         .sort((a, b) => b.score - a.score);
       showResults(sorted);
     }
@@ -540,7 +557,7 @@ async function autoConfirm() {
 }
 
 function stopListeningRoom() {
-  stopListeningRoom();
+  if (roomListener) { off(roomRef, 'value', roomListener); roomListener = null; }
 }
 
 async function advanceRound(data, players) {
@@ -559,7 +576,32 @@ async function advanceRound(data, players) {
 
 window.startGame = async function() {
   const dice = rollDice();
-  await update(roomRef, { phase: 'playing', round: 0, 'dice/d1': dice.d1, 'dice/d2': dice.d2 });
+  await update(roomRef, { phase: 'playing', gameId: 0, round: 0, 'dice/d1': dice.d1, 'dice/d2': dice.d2 });
+};
+
+window.playAgainSamePlayers = async function() {
+  if (!isHost || !lastRoomData || !lastPlayers) return;
+  const data    = lastRoomData;
+  const players = lastPlayers;
+  const wins    = { ...(data.wins || {}) };
+
+  // credit the winner
+  const sorted = Object.entries(players).sort((a,b) => b[1].score - a[1].score);
+  if (sorted.length) {
+    const winnerId = sorted[0][0];
+    wins[winnerId] = (wins[winnerId] || 0) + 1;
+  }
+
+  const updates = { wins, gameId: (data.gameId || 0) + 1, phase: 'playing', round: 0 };
+  for (const pid of Object.keys(players)) {
+    updates[`players/${pid}/score`]     = 0;
+    updates[`players/${pid}/confirmed`] = false;
+    updates[`players/${pid}/stuck`]     = false;
+  }
+  const dice = rollDice();
+  updates['dice/d1'] = dice.d1;
+  updates['dice/d2'] = dice.d2;
+  await update(roomRef, updates);
 };
 
 // ── Player rendering ──
@@ -579,13 +621,16 @@ function renderWaitingPlayers(players) {
     </div>`).join('');
 }
 
-function renderMiniPlayers(players) {
+function renderMiniPlayers(players, wins) {
   EL.playersMini.innerHTML = Object.entries(players).map(([id, p], i) => {
     const icon  = p.stuck ? '🚫' : p.confirmed ? '✓' : '…';
     const color = p.confirmed ? '#4caf50' : p.stuck ? '#e94560' : '#888';
+    const w = wins?.[id] ?? 0;
+    const winBadge = w > 0 ? `<span class="mini-wins">${w}W</span>` : '';
     return `<div class="mini-player">
       ${avatarHTML(p.name, i, 'mini-avatar')}
       <span class="mini-check" style="color:${color}">${icon}</span>
+      ${winBadge}
     </div>`;
   }).join('');
 }
@@ -595,19 +640,28 @@ function renderMiniPlayers(players) {
 function showResults(sorted) {
   showScreen('results');
   const medals = ['🥇','🥈','🥉'];
-  document.getElementById('results-list').innerHTML = sorted.map((p, i) => `
-    <div class="result-row">
+  document.getElementById('results-list').innerHTML = sorted.map((p, i) => {
+    const winsLabel = p.wins > 0 ? `<span class="result-wins">${p.wins}W</span>` : '';
+    return `<div class="result-row">
       <div class="result-rank ${i===0?'gold':''}">${medals[i] ?? i+1}</div>
-      <div class="result-name">${p.name}${p.stuck?' <span class="result-note">(finished early)</span>':''}</div>
+      <div class="result-name">${p.name}${p.stuck?' <span class="result-note">(finished early)</span>':''}${winsLabel}</div>
       <div class="result-score">${p.score}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+
   const soloBox = document.getElementById('solo-rating-box');
-  if (sorted.length === 1) {
+  const footer  = document.getElementById('results-footer');
+  if (isSolo) {
     const rating = SOLO_RATINGS.find(r => sorted[0].score >= r.min && sorted[0].score <= r.max);
     document.getElementById('solo-rating-text').textContent = rating?.label ?? '—';
     soloBox.style.display = 'block';
+    footer.innerHTML = `<button class="btn-primary" onclick="playAgain()">Play Again</button>`;
   } else {
     soloBox.style.display = 'none';
+    footer.innerHTML = isHost
+      ? `<button class="btn-success" onclick="playAgainSamePlayers()">Play Again (same room) →</button>
+         <button class="btn-ghost" onclick="leaveRoom()">← Leave Room</button>`
+      : `<button class="btn-ghost" onclick="leaveRoom()">← Leave Room</button>`;
   }
 }
 
@@ -654,7 +708,6 @@ window.resumeGame = function() {
     sheetCfg = SHEETS[s.sheet];
     ({ grid, round, myScore, myStuck, diceTypes, diceRots, dicePlaced, activeDie } = s);
     placedThisRound = s.placedThisRound || [];
-    EL.roundDisplay.textContent = round + 1;
     EL.scoreDisplay.textContent = myScore;
     updateStuckUI();
     updateDicePanel();
@@ -733,6 +786,17 @@ if (joinParam) {
 if (hasSave()) EL.resumeBanner.style.display = 'flex';
 
 window.addEventListener('resize', () => { if (sheetCfg) buildGrid(); });
+
+// Disable pinch-zoom on iOS (user-scalable=no is ignored in Safari)
+document.addEventListener('gesturestart',  e => e.preventDefault(), { passive: false });
+document.addEventListener('gesturechange', e => e.preventDefault(), { passive: false });
+document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+
+// Live hints preference (updates showHints immediately for current game)
+document.getElementById('hints-toggle').addEventListener('change', e => {
+  showHints = e.target.checked;
+  if (sheetCfg) buildGrid();
+});
 
 if ('serviceWorker' in navigator)
   navigator.serviceWorker.register('sw.js').catch(console.warn);

@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="style.css">
 <link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f3460'/%3E%3Ccircle cx='10' cy='10' r='3' fill='%2353d8fb'/%3E%3Ccircle cx='22' cy='10' r='3' fill='%2353d8fb'/%3E%3Ccircle cx='22' cy='22' r='3' fill='%2353d8fb'/%3E%3C/svg%3E">
 <title>Pipeline</title>
 </head>
 <body>
@@ -34,6 +35,10 @@
       <button class="sheet-btn selected" data-sheet="front">Front<br><small>5×5 · 12 rounds</small></button>
       <button class="sheet-btn" data-sheet="back">Back<br><small>5×6 · 14 rounds</small></button>
     </div>
+    <label class="hint-toggle-row">
+      <input type="checkbox" id="hints-toggle" checked>
+      Show placement hints
+    </label>
     <button class="btn-primary" onclick="createRoom()">Create Room</button>
     <button class="btn-ghost" onclick="startSolo()">Solo Game</button>
   </div>
@@ -69,7 +74,6 @@
 <!-- ══════════════ GAME ══════════════ -->
 <div id="game" class="screen">
   <div class="game-header">
-    <div class="game-round">Round <strong id="round-display">1</strong></div>
     <div class="game-players-mini" id="players-mini"></div>
     <button class="btn-ghost btn-sm" onclick="cancelGame()">✕ Leave</button>
   </div>
@@ -112,7 +116,7 @@
     <div class="solo-rating-label">Your Rating</div>
     <div class="solo-rating-title" id="solo-rating-text"></div>
   </div>
-  <button class="btn-primary" onclick="playAgain()">Play Again</button>
+  <div id="results-footer" class="results-footer"></div>
 </div>
 
 <div class="toast" id="toast"></div>
