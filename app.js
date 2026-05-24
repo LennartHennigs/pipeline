@@ -286,7 +286,7 @@ function canPlayerMove(g) {
 }
 
 function updateConfirmBtn() {
-  EL.confirmBtn.disabled = placedThisRound.length < 2;
+  EL.confirmBtn.style.display = (!myStuck && placedThisRound.length >= 2) ? 'block' : 'none';
 }
 
 // ── Score calculation ──
@@ -376,8 +376,6 @@ function startRound(d1, d2) {
     EL.dicePanel.classList.remove('dice-flash');
     void EL.dicePanel.offsetWidth;
     EL.dicePanel.classList.add('dice-flash');
-    EL.confirmBtn.style.display = 'block';
-    EL.confirmBtn.textContent = 'Confirm';
   }
   updateDicePanel();
   updateConfirmBtn();
@@ -413,7 +411,7 @@ window.confirmPlacement = async function() {
 function updateStuckUI() {
   EL.stuckBanner.style.display = myStuck ? 'block' : 'none';
   EL.dicePanel.style.display   = myStuck ? 'none'  : 'block';
-  EL.confirmBtn.style.display  = myStuck ? 'none'  : 'block';
+  if (myStuck) EL.confirmBtn.style.display = 'none';
 }
 
 // ── Screen navigation ──
