@@ -79,13 +79,17 @@ const DIE_EL = [0,1].map(i => ({
 }));
 
 const EL = {
-  stuckBanner: document.getElementById('stuck-banner'),
-  dicePanel:   document.getElementById('dice-panel'),
-  confirmBtn:  document.getElementById('confirm-btn'),
-  roundDisplay:document.getElementById('round-display'),
-  scoreDisplay:document.getElementById('score-display'),
-  gridSvg:     document.getElementById('grid-svg'),
-  toast:       document.getElementById('toast'),
+  stuckBanner:  document.getElementById('stuck-banner'),
+  dicePanel:    document.getElementById('dice-panel'),
+  confirmBtn:   document.getElementById('confirm-btn'),
+  roundDisplay: document.getElementById('round-display'),
+  scoreDisplay: document.getElementById('score-display'),
+  gridSvg:      document.getElementById('grid-svg'),
+  toast:        document.getElementById('toast'),
+  resumeBanner: document.getElementById('resume-banner'),
+  playersMini:  document.getElementById('players-mini'),
+  nameInput:    document.getElementById('player-name'),
+  joinCodeInput:document.getElementById('join-code'),
 };
 
 // ── State ──
@@ -213,12 +217,6 @@ function buildGrid() {
   }
 
   EL.gridSvg.innerHTML = html;
-  EL.gridSvg.querySelectorAll('.cell-click').forEach(el =>
-    el.addEventListener('click', () => cellClicked(+el.dataset.r, +el.dataset.c))
-  );
-  EL.gridSvg.querySelectorAll('[data-undo]').forEach(el =>
-    el.addEventListener('click', e => { e.stopPropagation(); undoPlace(+el.dataset.undo); })
-  );
 }
 
 function undoPlace(idx) {
@@ -305,15 +303,19 @@ function calcScore() {
   return total;
 }
 
+function edgeConnected(cell, dir) {
+  return cell && getOpenings(cell.type, cell.rot).has(dir);
+}
+
 function allOnesConnected() {
   const { rows, cols, topEdge, bottomEdge, leftEdge, rightEdge } = sheetCfg;
   for (let c = 0; c < cols; c++) {
-    if (topEdge[c]    === 1) { const ce = grid[0][c];      if (!ce || !getOpenings(ce.type,ce.rot).has('N')) return false; }
-    if (bottomEdge[c] === 1) { const ce = grid[rows-1][c]; if (!ce || !getOpenings(ce.type,ce.rot).has('S')) return false; }
+    if (topEdge[c]    === 1 && !edgeConnected(grid[0][c],      'N')) return false;
+    if (bottomEdge[c] === 1 && !edgeConnected(grid[rows-1][c], 'S')) return false;
   }
   for (let r = 0; r < rows; r++) {
-    if (leftEdge[r]  === 1) { const ce = grid[r][0];       if (!ce || !getOpenings(ce.type,ce.rot).has('W')) return false; }
-    if (rightEdge[r] === 1) { const ce = grid[r][cols-1];  if (!ce || !getOpenings(ce.type,ce.rot).has('E')) return false; }
+    if (leftEdge[r]  === 1 && !edgeConnected(grid[r][0],       'W')) return false;
+    if (rightEdge[r] === 1 && !edgeConnected(grid[r][cols-1],  'E')) return false;
   }
   return true;
 }
@@ -393,8 +395,7 @@ window.confirmPlacement = async function() {
     return;
   }
 
-  const playerRef = ref(db, `rooms/${roomCode}/players/${myId}`);
-  await update(playerRef, { confirmed: true, score, stuck });
+  await updateMyPlayer({ confirmed: true, score, stuck });
   EL.confirmBtn.disabled = true;
   EL.confirmBtn.textContent = '✓ Done';
   EL.confirmBtn.classList.add('done');
@@ -432,56 +433,59 @@ function initLocalGame(sheet) {
 // ── Solo mode ──
 
 window.startSolo = function() {
-  myName = document.getElementById('player-name').value.trim() || 'Solo Player';
+  myName = EL.nameInput.value.trim() || 'Solo Player';
   isSolo = true;
   initLocalGame(selectedSheet);
   showScreen('game');
-  document.getElementById('players-mini').innerHTML = '';
+  EL.playersMini.innerHTML = '';
   const dice = rollDice();
   startRound(dice.d1, dice.d2);
 };
 
 // ── Multiplayer — create / join ──
 
-window.createRoom = async function() {
-  if (!firebaseReady) { showToast('Firebase not configured — try Solo mode'); return; }
-  myName = document.getElementById('player-name').value.trim();
-  if (!myName) { showToast('Enter your name first'); return; }
-  isHost = true; isSolo = false;
-  roomCode = randomCode();
+function multiplayerSetup() {
+  if (!firebaseReady) { showToast('Firebase not configured — try Solo mode'); return false; }
+  myName = EL.nameInput.value.trim();
+  if (!myName) { showToast('Enter your name first'); return false; }
+  isSolo = false;
+  return true;
+}
+
+function openWaitingRoom(code, asHost) {
+  roomCode = code;
   roomRef  = ref(db, `rooms/${roomCode}`);
-  await set(roomRef, {
+  document.getElementById('display-code').textContent = roomCode;
+  document.getElementById('start-btn').style.display = asHost ? 'block' : 'none';
+  showScreen('waiting');
+  showQR();
+  listenRoom();
+}
+
+window.createRoom = async function() {
+  if (!multiplayerSetup()) return;
+  isHost = true;
+  const code = randomCode();
+  await set(ref(db, `rooms/${code}`), {
     sheet: selectedSheet, round: 0,
     maxRounds: SHEETS[selectedSheet].maxRounds,
     phase: 'waiting', dice: { d1: null, d2: null }, host: myId,
     players: { [myId]: { name: myName, score: 0, confirmed: false, stuck: false } }
   });
-  document.getElementById('display-code').textContent = roomCode;
-  document.getElementById('start-btn').style.display = 'block';
-  showScreen('waiting');
-  showQR();
-  listenRoom();
+  openWaitingRoom(code, true);
 };
 
 window.joinRoom = async function() {
-  if (!firebaseReady) { showToast('Firebase not configured — try Solo mode'); return; }
-  myName = document.getElementById('player-name').value.trim();
-  if (!myName) { showToast('Enter your name first'); return; }
-  const code = document.getElementById('join-code').value.trim().toUpperCase();
+  if (!multiplayerSetup()) return;
+  isHost = false;
+  const code = EL.joinCodeInput.value.trim().toUpperCase();
   if (code.length !== 4) { showToast('Enter a 4-letter room code'); return; }
-  roomCode = code;
-  roomRef  = ref(db, `rooms/${roomCode}`);
-  const snap = await get(roomRef);
+  const snap = await get(ref(db, `rooms/${code}`));
   if (!snap.exists()) { showToast('Room not found'); return; }
   if (snap.val().phase !== 'waiting') { showToast('Game already started'); return; }
-  isHost = false; isSolo = false;
-  await update(ref(db, `rooms/${roomCode}/players/${myId}`),
+  await update(ref(db, `rooms/${code}/players/${myId}`),
     { name: myName, score: 0, confirmed: false, stuck: false });
-  document.getElementById('display-code').textContent = roomCode;
-  document.getElementById('start-btn').style.display = 'none';
-  showScreen('waiting');
-  showQR();
-  listenRoom();
+  openWaitingRoom(code, false);
 };
 
 // ── Firebase listener ──
@@ -527,9 +531,16 @@ function listenRoom() {
   });
 }
 
+function updateMyPlayer(updates) {
+  return update(ref(db, `rooms/${roomCode}/players/${myId}`), updates);
+}
+
 async function autoConfirm() {
-  await update(ref(db, `rooms/${roomCode}/players/${myId}`),
-    { confirmed: true, score: myScore, stuck: true });
+  await updateMyPlayer({ confirmed: true, score: myScore, stuck: true });
+}
+
+function stopListeningRoom() {
+  stopListeningRoom();
 }
 
 async function advanceRound(data, players) {
@@ -569,7 +580,7 @@ function renderWaitingPlayers(players) {
 }
 
 function renderMiniPlayers(players) {
-  document.getElementById('players-mini').innerHTML = Object.entries(players).map(([id, p], i) => {
+  EL.playersMini.innerHTML = Object.entries(players).map(([id, p], i) => {
     const icon  = p.stuck ? '🚫' : p.confirmed ? '✓' : '…';
     const color = p.confirmed ? '#4caf50' : p.stuck ? '#e94560' : '#888';
     return `<div class="mini-player">
@@ -601,19 +612,19 @@ function showResults(sorted) {
 }
 
 window.playAgain = function() {
-  if (roomListener) { off(roomRef, 'value', roomListener); roomListener = null; }
+  stopListeningRoom();
   showScreen('lobby');
 };
 
 window.leaveRoom = function() {
-  if (roomListener) { off(roomRef, 'value', roomListener); roomListener = null; }
+  stopListeningRoom();
   if (roomRef && isHost) remove(roomRef);
   showScreen('lobby');
 };
 
 window.cancelGame = function() {
   if (!confirm('Leave the game? Your progress will be lost.')) return;
-  if (roomListener) { off(roomRef, 'value', roomListener); roomListener = null; }
+  stopListeningRoom();
   if (!isSolo && roomRef) {
     isHost ? remove(roomRef) : remove(ref(db, `rooms/${roomCode}/players/${myId}`));
   }
@@ -639,7 +650,7 @@ window.resumeGame = function() {
   try {
     const s = JSON.parse(raw);
     isSolo = true;
-    myName = document.getElementById('player-name').value.trim() || localStorage.getItem(NAME_KEY) || 'Player';
+    myName = EL.nameInput.value.trim() || localStorage.getItem(NAME_KEY) || 'Player';
     sheetCfg = SHEETS[s.sheet];
     ({ grid, round, myScore, myStuck, diceTypes, diceRots, dicePlaced, activeDie } = s);
     placedThisRound = s.placedThisRound || [];
@@ -649,20 +660,20 @@ window.resumeGame = function() {
     updateDicePanel();
     updateConfirmBtn();
     buildGrid();
-    document.getElementById('players-mini').innerHTML = '';
+    EL.playersMini.innerHTML = '';
     showScreen('game');
     return true;
   } catch(e) {
     console.warn('Failed to resume save:', e);
     clearSave();
-    document.getElementById('resume-banner').style.display = 'none';
+    EL.resumeBanner.style.display = 'none';
     return false;
   }
 };
 
 window.discardSave = function() {
   clearSave();
-  document.getElementById('resume-banner').style.display = 'none';
+  EL.resumeBanner.style.display = 'none';
 };
 
 // ── QR code ──
@@ -693,6 +704,14 @@ function showToast(msg) {
 
 // ── Init ──
 
+// Grid click delegation — one listener instead of per-cell listeners rebuilt on every render
+EL.gridSvg.addEventListener('click', e => {
+  const cell = e.target.closest('.cell-click');
+  if (cell) { cellClicked(+cell.dataset.r, +cell.dataset.c); return; }
+  const undo = e.target.closest('[data-undo]');
+  if (undo) { e.stopPropagation(); undoPlace(+undo.dataset.undo); }
+});
+
 document.querySelectorAll('.sheet-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.sheet-btn').forEach(b => b.classList.remove('selected'));
@@ -701,18 +720,17 @@ document.querySelectorAll('.sheet-btn').forEach(btn => {
   });
 });
 
-const nameInput = document.getElementById('player-name');
 const savedName = localStorage.getItem(NAME_KEY);
-if (savedName) nameInput.value = savedName;
-nameInput.addEventListener('input', () => localStorage.setItem(NAME_KEY, nameInput.value.trim()));
+if (savedName) EL.nameInput.value = savedName;
+EL.nameInput.addEventListener('input', () => localStorage.setItem(NAME_KEY, EL.nameInput.value.trim()));
 
 const joinParam = new URLSearchParams(location.search).get('join');
 if (joinParam) {
-  document.getElementById('join-code').value = joinParam.toUpperCase();
-  setTimeout(() => document.getElementById('join-code').scrollIntoView({ behavior:'smooth', block:'center' }), 300);
+  EL.joinCodeInput.value = joinParam.toUpperCase();
+  setTimeout(() => EL.joinCodeInput.scrollIntoView({ behavior:'smooth', block:'center' }), 300);
 }
 
-if (hasSave()) document.getElementById('resume-banner').style.display = 'flex';
+if (hasSave()) EL.resumeBanner.style.display = 'flex';
 
 window.addEventListener('resize', () => { if (sheetCfg) buildGrid(); });
 
