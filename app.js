@@ -89,6 +89,8 @@ const EL = {
   playersMini:  document.getElementById('players-mini'),
   nameInput:    document.getElementById('player-name'),
   joinCodeInput:document.getElementById('join-code'),
+  hintsToggle:  document.getElementById('hints-toggle'),
+  resultsFooter:document.getElementById('results-footer'),
 };
 
 // ── State ──
@@ -176,10 +178,8 @@ function buildGrid() {
   EL.gridSvg.setAttribute('height',  svgH * scale);
   EL.gridSvg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
 
-  const edgeColor = (v, conn) => {
-    const base = v === 5 ? '#e94560' : v === 3 ? '#ffd700' : (conn ? '#aaa' : '#555');
-    return base;
-  };
+  const edgeColor = (v, conn) =>
+    v === 5 ? '#e94560' : v === 3 ? '#ffd700' : (conn ? '#aaa' : '#555');
   const bothPlaced = dicePlaced[0] && dicePlaced[1];
   const curType = bothPlaced ? null : diceTypes[activeDie];
   const curRot  = bothPlaced ? 0   : diceRots[activeDie];
@@ -445,7 +445,7 @@ function initLocalGame(sheet) {
 window.startSolo = function() {
   myName = EL.nameInput.value.trim() || 'Solo Player';
   isSolo = true;
-  showHints = document.getElementById('hints-toggle').checked;
+  showHints = EL.hintsToggle.checked;
   initLocalGame(selectedSheet);
   showScreen('game');
   EL.playersMini.innerHTML = '';
@@ -518,7 +518,7 @@ function listenRoom() {
       const gameId = data.gameId ?? 0;
       if (gameId !== lastGameId) {
         lastGameId = gameId;
-        showHints = document.getElementById('hints-toggle').checked;
+        showHints = EL.hintsToggle.checked;
         myStuck = false;
         initLocalGame(data.sheet);
         showScreen('game');
@@ -581,26 +581,20 @@ window.startGame = async function() {
 
 window.playAgainSamePlayers = async function() {
   if (!isHost || !lastRoomData || !lastPlayers) return;
-  const data    = lastRoomData;
-  const players = lastPlayers;
-  const wins    = { ...(data.wins || {}) };
+  const wins = { ...lastRoomData.wins };
 
-  // credit the winner
-  const sorted = Object.entries(players).sort((a,b) => b[1].score - a[1].score);
-  if (sorted.length) {
-    const winnerId = sorted[0][0];
-    wins[winnerId] = (wins[winnerId] || 0) + 1;
-  }
+  const [[winnerId] = []] = Object.entries(lastPlayers).sort((a, b) => b[1].score - a[1].score);
+  if (winnerId) wins[winnerId] = (wins[winnerId] || 0) + 1;
 
-  const updates = { wins, gameId: (data.gameId || 0) + 1, phase: 'playing', round: 0 };
-  for (const pid of Object.keys(players)) {
+  const updates = { wins, gameId: (lastRoomData.gameId || 0) + 1, phase: 'playing', round: 0 };
+  for (const pid of Object.keys(lastPlayers)) {
     updates[`players/${pid}/score`]     = 0;
     updates[`players/${pid}/confirmed`] = false;
     updates[`players/${pid}/stuck`]     = false;
   }
-  const dice = rollDice();
-  updates['dice/d1'] = dice.d1;
-  updates['dice/d2'] = dice.d2;
+  const { d1, d2 } = rollDice();
+  updates['dice/d1'] = d1;
+  updates['dice/d2'] = d2;
   await update(roomRef, updates);
 };
 
@@ -609,6 +603,8 @@ window.playAgainSamePlayers = async function() {
 function avatarHTML(name, idx, cls) {
   return `<div class="${cls}" style="background:${PLAYER_COLORS[idx % PLAYER_COLORS.length]}">${name[0].toUpperCase()}</div>`;
 }
+
+const winsSpan = (count, cls) => count > 0 ? `<span class="${cls}">${count}W</span>` : '';
 
 function renderWaitingPlayers(players) {
   const entries = Object.entries(players);
@@ -625,8 +621,7 @@ function renderMiniPlayers(players, wins) {
   EL.playersMini.innerHTML = Object.entries(players).map(([id, p], i) => {
     const icon  = p.stuck ? '🚫' : p.confirmed ? '✓' : '…';
     const color = p.confirmed ? '#4caf50' : p.stuck ? '#e94560' : '#888';
-    const w = wins?.[id] ?? 0;
-    const winBadge = w > 0 ? `<span class="mini-wins">${w}W</span>` : '';
+    const winBadge = winsSpan(wins?.[id] ?? 0, 'mini-wins');
     return `<div class="mini-player">
       ${avatarHTML(p.name, i, 'mini-avatar')}
       <span class="mini-check" style="color:${color}">${icon}</span>
@@ -641,7 +636,7 @@ function showResults(sorted) {
   showScreen('results');
   const medals = ['🥇','🥈','🥉'];
   document.getElementById('results-list').innerHTML = sorted.map((p, i) => {
-    const winsLabel = p.wins > 0 ? `<span class="result-wins">${p.wins}W</span>` : '';
+    const winsLabel = winsSpan(p.wins, 'result-wins');
     return `<div class="result-row">
       <div class="result-rank ${i===0?'gold':''}">${medals[i] ?? i+1}</div>
       <div class="result-name">${p.name}${p.stuck?' <span class="result-note">(finished early)</span>':''}${winsLabel}</div>
@@ -650,7 +645,7 @@ function showResults(sorted) {
   }).join('');
 
   const soloBox = document.getElementById('solo-rating-box');
-  const footer  = document.getElementById('results-footer');
+  const footer  = EL.resultsFooter;
   if (isSolo) {
     const rating = SOLO_RATINGS.find(r => sorted[0].score >= r.min && sorted[0].score <= r.max);
     document.getElementById('solo-rating-text').textContent = rating?.label ?? '—';
@@ -793,7 +788,7 @@ document.addEventListener('gesturechange', e => e.preventDefault(), { passive: f
 document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
 // Live hints preference (updates showHints immediately for current game)
-document.getElementById('hints-toggle').addEventListener('change', e => {
+EL.hintsToggle.addEventListener('change', e => {
   showHints = e.target.checked;
   if (sheetCfg) buildGrid();
 });
