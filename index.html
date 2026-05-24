@@ -322,7 +322,8 @@ function buildGrid() {
         html += valid
           ? `<rect x="${cx+1}" y="${cy+1}" width="${CELL-2}" height="${CELL-2}" fill="rgba(83,216,251,.07)" rx="2"/>`
           : `<rect x="${cx}" y="${cy}" width="${CELL}" height="${CELL}" fill="rgba(0,0,0,.28)" rx="2"/>`;
-        html += `<rect x="${cx}" y="${cy}" width="${CELL}" height="${CELL}" fill="transparent" rx="2" data-r="${r}" data-c="${c}" class="cell-click" style="cursor:${valid?'pointer':'not-allowed'}"/>`;
+        if (valid)
+          html += `<rect x="${cx}" y="${cy}" width="${CELL}" height="${CELL}" fill="transparent" rx="2" data-r="${r}" data-c="${c}" class="cell-click" style="cursor:pointer"/>`;
       }
     }
   }
