@@ -521,7 +521,7 @@ function listenRoom() {
 
     if (data.phase === 'playing') {
       const gameId = data.gameId ?? 0;
-      if (gameId !== lastGameId) {
+      if (!SCREEN_EL.game.classList.contains('active')) {
         lastGameId = gameId;
         showHints = EL.hintsToggle.checked;
         myStuck = false;
