@@ -35,6 +35,7 @@ const DIRS      = ['N','E','S','W'];
 const DIR_INDEX = { N:0, E:1, S:2, W:3 };  // O(1) replaces indexOf
 const OPP       = { N:'S', S:'N', E:'W', W:'E' };
 const DIR_RC    = { N:[-1,0], S:[1,0], E:[0,1], W:[0,-1] };
+const NEIGHBORS = Object.values(DIR_RC);
 
 const PLAYER_COLORS = ['#e94560','#53d8fb','#ffd700','#a855f7','#f97316','#22c55e'];
 
@@ -75,7 +76,6 @@ const NAME_KEY = 'pipeline_player_name';
 const DIE_EL = [0,1].map(i => ({
   card: document.getElementById(`die${i}`),
   svg:  document.getElementById(`die${i}-svg`),
-  mark: document.getElementById(`die${i}-mark`),
 }));
 
 const EL = {
@@ -91,6 +91,15 @@ const EL = {
   joinCodeInput:document.getElementById('join-code'),
   hintsToggle:  document.getElementById('hints-toggle'),
   resultsFooter:document.getElementById('results-footer'),
+  displayCode:  document.getElementById('display-code'),
+  startBtn:     document.getElementById('start-btn'),
+  playerCount:  document.getElementById('player-count'),
+  waitingList:  document.getElementById('waiting-players'),
+  resultsList:  document.getElementById('results-list'),
+  soloRatingBox:document.getElementById('solo-rating-box'),
+  soloRatingText:document.getElementById('solo-rating-text'),
+  qrImg:        document.getElementById('qr-img'),
+  qrHint:       document.getElementById('qr-hint'),
 };
 
 // ── State ──
@@ -131,31 +140,27 @@ function getOpenings(type, rot) {
   return result;
 }
 
-function isValidPlacementOnGrid(g, r, c, type, rot) {
+function isValidPlacementOnGrid(g, r, c) {
   const rows = g.length, cols = g[0].length;
-  for (const dir of getOpenings(type, rot)) {
-    const [dr, dc] = DIR_RC[dir];
+  for (const [dr, dc] of NEIGHBORS) {
     const nr = r + dr, nc = c + dc;
-    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
-    const nb = g[nr][nc];
-    if (nb && getOpenings(nb.type, nb.rot).has(OPP[dir])) return true;
+    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && g[nr][nc]) return true;
   }
   return false;
 }
 
-const isValidPlacement = (r, c, type, rot) => isValidPlacementOnGrid(grid, r, c, type, rot);
+const isValidPlacement = (r, c) => isValidPlacementOnGrid(grid, r, c);
 
 // ── SVG pipe renderer ──
 
 const CELL = 58, HALF = 29, PIPE = 10;
+const PIPE_PTS = { N:[HALF,0], E:[CELL,HALF], S:[HALF,CELL], W:[0,HALF] };
 
-function pipePath(type, rot, color, size = CELL) {
-  const h = size / 2, p = size / CELL * PIPE;
-  const pts = { N:[h,0], E:[size,h], S:[h,size], W:[0,h] };
+function pipePath(type, rot, color) {
   const segs = [];
   for (const dir of getOpenings(type, rot))
-    segs.push(`<line x1="${h}" y1="${h}" x2="${pts[dir][0]}" y2="${pts[dir][1]}" stroke="${color}" stroke-width="${p}" stroke-linecap="round"/>`);
-  segs.push(`<circle cx="${h}" cy="${h}" r="${p/2}" fill="${color}"/>`);
+    segs.push(`<line x1="${HALF}" y1="${HALF}" x2="${PIPE_PTS[dir][0]}" y2="${PIPE_PTS[dir][1]}" stroke="${color}" stroke-width="${PIPE}" stroke-linecap="round"/>`);
+  segs.push(`<circle cx="${HALF}" cy="${HALF}" r="${PIPE/2}" fill="${color}"/>`);
   return segs.join('');
 }
 
@@ -180,9 +185,10 @@ function buildGrid() {
 
   const edgeColor = (v, conn) =>
     v === 5 ? '#e94560' : v === 3 ? '#ffd700' : (conn ? '#aaa' : '#555');
+  const edgeText = (x, y, v, conn) =>
+    `<text x="${x}" y="${y}" text-anchor="middle" font-size="${conn?15:13}" font-weight="${conn?900:700}" fill="${edgeColor(v,conn)}">${v}</text>`;
   const bothPlaced = dicePlaced[0] && dicePlaced[1];
   const curType = bothPlaced ? null : diceTypes[activeDie];
-  const curRot  = bothPlaced ? 0   : diceRots[activeDie];
   let html = `<rect x="${G}" y="${G}" width="${cols*CELL}" height="${rows*CELL}" fill="#0f2a4a" rx="4"/>`;
 
   for (let r = 0; r <= rows; r++)
@@ -191,18 +197,14 @@ function buildGrid() {
     html += `<line x1="${G+c*CELL}" y1="${G}" x2="${G+c*CELL}" y2="${G+rows*CELL}" stroke="rgba(255,255,255,.12)" stroke-width="1"/>`;
 
   for (let c = 0; c < cols; c++) {
-    const tc = edgeConnected(grid[0][c], 'N');
-    const bc = edgeConnected(grid[rows-1][c], 'S');
-    const tv = sheetCfg.topEdge[c], bv = sheetCfg.bottomEdge[c];
-    html += `<text x="${G+c*CELL+HALF}" y="${G-8}" text-anchor="middle" font-size="${tc?15:13}" font-weight="${tc?900:700}" fill="${edgeColor(tv,tc)}">${tv}</text>`;
-    html += `<text x="${G+c*CELL+HALF}" y="${G+rows*CELL+16}" text-anchor="middle" font-size="${bc?15:13}" font-weight="${bc?900:700}" fill="${edgeColor(bv,bc)}">${bv}</text>`;
+    const x = G + c*CELL + HALF;
+    html += edgeText(x, G-8,            sheetCfg.topEdge[c],    edgeConnected(grid[0][c],      'N'));
+    html += edgeText(x, G+rows*CELL+16, sheetCfg.bottomEdge[c], edgeConnected(grid[rows-1][c], 'S'));
   }
   for (let r = 0; r < rows; r++) {
-    const lc = edgeConnected(grid[r][0], 'W');
-    const rc = edgeConnected(grid[r][cols-1], 'E');
-    const lv = sheetCfg.leftEdge[r], rv = sheetCfg.rightEdge[r];
-    html += `<text x="${G-8}" y="${G+r*CELL+HALF+5}" text-anchor="middle" font-size="${lc?15:13}" font-weight="${lc?900:700}" fill="${edgeColor(lv,lc)}">${lv}</text>`;
-    html += `<text x="${G+cols*CELL+8}" y="${G+r*CELL+HALF+5}" text-anchor="middle" font-size="${rc?15:13}" font-weight="${rc?900:700}" fill="${edgeColor(rv,rc)}">${rv}</text>`;
+    const y = G + r*CELL + HALF + 5;
+    html += edgeText(G-8,           y, sheetCfg.leftEdge[r],  edgeConnected(grid[r][0],       'W'));
+    html += edgeText(G+cols*CELL+8, y, sheetCfg.rightEdge[r], edgeConnected(grid[r][cols-1],  'E'));
   }
 
   for (let r = 0; r < rows; r++) {
@@ -210,9 +212,9 @@ function buildGrid() {
       const cell = grid[r][c];
       const cx = G + c*CELL, cy = G + r*CELL;
       if (cell) {
-        html += `<g transform="translate(${cx},${cy})">${pipePath(cell.type, cell.rot, cell.prePlaced ? '#666' : '#4caf50')}</g>`;
+        html += `<g transform="translate(${cx},${cy})">${pipePath(cell.type, cell.rot, cell.prePlaced ? '#666' : '#888')}</g>`;
       } else {
-        const valid = curType ? isValidPlacement(r, c, curType, curRot) : false;
+        const valid = curType ? isValidPlacement(r, c) : false;
         const clickable = showHints ? valid : (curType && !bothPlaced);
         html += (showHints && valid)
           ? `<rect x="${cx+1}" y="${cy+1}" width="${CELL-2}" height="${CELL-2}" fill="rgba(83,216,251,.07)" rx="2"/>`
@@ -223,11 +225,10 @@ function buildGrid() {
     }
   }
 
-  for (const p of placedThisRound) {
+  placedThisRound.forEach((p, idx) => {
     const cx = G + p.c*CELL, cy = G + p.r*CELL;
-    html += `<g transform="translate(${cx},${cy})" opacity="0.7">${pipePath(diceTypes[p.dieIdx], diceRots[p.dieIdx], '#53d8fb')}</g>`;
-    html += `<text x="${cx+CELL-6}" y="${cy+14}" text-anchor="middle" font-size="12" fill="#e94560" data-undo="${placedThisRound.indexOf(p)}" style="cursor:pointer">✕</text>`;
-  }
+    html += `<g transform="translate(${cx},${cy})" data-undo="${idx}" style="cursor:pointer">${pipePath(diceTypes[p.dieIdx], diceRots[p.dieIdx], '#4caf50')}</g>`;
+  });
 
   EL.gridSvg.innerHTML = html;
 }
@@ -253,8 +254,8 @@ function cellClicked(r, c) {
     return;
   }
   if (grid[r][c]) return;
-  if (!isValidPlacement(r, c, diceTypes[activeDie], diceRots[activeDie])) {
-    showToast('⚠️ Must connect to existing pipe');
+  if (!isValidPlacement(r, c)) {
+    showToast('⚠️ Must be adjacent to an existing pipe');
     return;
   }
   dicePlaced[activeDie] = true;
@@ -272,18 +273,15 @@ function cellClicked(r, c) {
 
 function canPlayerMove(g) {
   const rows = g.length, cols = g[0].length;
-  const [t1, t2] = diceTypes;
-  for (let rot1 = 0; rot1 < 4; rot1++)
-    for (let r1 = 0; r1 < rows; r1++)
-      for (let c1 = 0; c1 < cols; c1++) {
-        if (g[r1][c1] || !isValidPlacementOnGrid(g, r1, c1, t1, rot1)) continue;
-        const g2 = g.map(row => [...row]);
-        g2[r1][c1] = { type: t1, rot: rot1 };
-        for (let rot2 = 0; rot2 < 4; rot2++)
-          for (let r2 = 0; r2 < rows; r2++)
-            for (let c2 = 0; c2 < cols; c2++)
-              if (!g2[r2][c2] && isValidPlacementOnGrid(g2, r2, c2, t2, rot2)) return true;
-      }
+  for (let r1 = 0; r1 < rows; r1++)
+    for (let c1 = 0; c1 < cols; c1++) {
+      if (g[r1][c1] || !isValidPlacementOnGrid(g, r1, c1)) continue;
+      const g2 = g.map(row => [...row]);
+      g2[r1][c1] = { type: 'placeholder', rot: 0 };
+      for (let r2 = 0; r2 < rows; r2++)
+        for (let c2 = 0; c2 < cols; c2++)
+          if (!g2[r2][c2] && isValidPlacementOnGrid(g2, r2, c2)) return true;
+    }
   return false;
 }
 
@@ -338,11 +336,9 @@ function allOnesConnected() {
 
 function updateDicePanel() {
   for (let i = 0; i < 2; i++) {
-    const { card, svg, mark } = DIE_EL[i];
+    const { card, svg } = DIE_EL[i];
     const isActive = i === activeDie, isPlaced = dicePlaced[i];
-    const color = isPlaced ? '#4caf50' : isActive ? '#53d8fb' : '#888';
-    svg.innerHTML  = makeDieSVG(diceTypes[i], diceRots[i], color);
-    mark.style.display = isPlaced ? 'block' : 'none';
+    svg.innerHTML = isPlaced ? '' : makeDieSVG(diceTypes[i], diceRots[i], isActive ? '#4caf50' : '#888');
     card.className = 'die-card' + (isPlaced ? ' placed' : isActive ? ' selected' : '');
   }
 }
@@ -381,7 +377,7 @@ function startRound(d1, d2) {
     void EL.dicePanel.offsetWidth;
     EL.dicePanel.classList.add('dice-flash');
     EL.confirmBtn.style.display = 'block';
-    EL.confirmBtn.textContent = 'Confirm ✓';
+    EL.confirmBtn.textContent = 'Confirm';
   }
   updateDicePanel();
   updateConfirmBtn();
@@ -422,9 +418,11 @@ function updateStuckUI() {
 
 // ── Screen navigation ──
 
+const SCREENS = document.querySelectorAll('.screen');
+const SCREEN_EL = Object.fromEntries([...SCREENS].map(s => [s.id, s]));
 function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
+  SCREENS.forEach(s => s.classList.remove('active'));
+  SCREEN_EL[id].classList.add('active');
 }
 
 // ── Grid init ──
@@ -466,8 +464,8 @@ function multiplayerSetup() {
 function openWaitingRoom(code, asHost) {
   roomCode = code;
   roomRef  = ref(db, `rooms/${roomCode}`);
-  document.getElementById('display-code').textContent = roomCode;
-  document.getElementById('start-btn').style.display = asHost ? 'block' : 'none';
+  EL.displayCode.textContent = roomCode;
+  EL.startBtn.style.display = asHost ? 'block' : 'none';
   showScreen('waiting');
   showQR();
   listenRoom();
@@ -569,7 +567,7 @@ async function advanceRound(data, players) {
   }
   const updates = {};
   for (const pid of Object.keys(players))
-    updates[`players/${pid}/confirmed`] = players[pid].stuck || false;
+    updates[`players/${pid}/confirmed`] = !!players[pid].stuck;
   const dice = rollDice();
   await update(roomRef, { ...updates, round: nextRound, 'dice/d1': dice.d1, 'dice/d2': dice.d2 });
 }
@@ -608,8 +606,8 @@ const winsSpan = (count, cls) => count > 0 ? `<span class="${cls}">${count}W</sp
 
 function renderWaitingPlayers(players) {
   const entries = Object.entries(players);
-  document.getElementById('player-count').textContent = entries.length;
-  document.getElementById('waiting-players').innerHTML = entries.map(([id, p], i) => `
+  EL.playerCount.textContent = entries.length;
+  EL.waitingList.innerHTML = entries.map(([id, p], i) => `
     <div class="player-item">
       ${avatarHTML(p.name, i, 'player-avatar')}
       <div class="player-name">${p.name}</div>
@@ -635,7 +633,7 @@ function renderMiniPlayers(players, wins) {
 function showResults(sorted) {
   showScreen('results');
   const medals = ['🥇','🥈','🥉'];
-  document.getElementById('results-list').innerHTML = sorted.map((p, i) => {
+  EL.resultsList.innerHTML = sorted.map((p, i) => {
     const winsLabel = winsSpan(p.wins, 'result-wins');
     return `<div class="result-row">
       <div class="result-rank ${i===0?'gold':''}">${medals[i] ?? i+1}</div>
@@ -644,15 +642,14 @@ function showResults(sorted) {
     </div>`;
   }).join('');
 
-  const soloBox = document.getElementById('solo-rating-box');
-  const footer  = EL.resultsFooter;
+  const footer = EL.resultsFooter;
   if (isSolo) {
     const rating = SOLO_RATINGS.find(r => sorted[0].score >= r.min && sorted[0].score <= r.max);
-    document.getElementById('solo-rating-text').textContent = rating?.label ?? '—';
-    soloBox.style.display = 'block';
+    EL.soloRatingText.textContent = rating?.label ?? '—';
+    EL.soloRatingBox.style.display = 'block';
     footer.innerHTML = `<button class="btn-primary" onclick="playAgain()">Play Again</button>`;
   } else {
-    soloBox.style.display = 'none';
+    EL.soloRatingBox.style.display = 'none';
     footer.innerHTML = isHost
       ? `<button class="btn-success" onclick="playAgainSamePlayers()">Play Again (same room) →</button>
          <button class="btn-ghost" onclick="leaveRoom()">← Leave Room</button>`
@@ -728,10 +725,9 @@ window.discardSave = function() {
 
 function showQR() {
   const url = encodeURIComponent(`${location.origin}${location.pathname}?join=${roomCode}`);
-  const img = document.getElementById('qr-img');
-  img.src = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${url}&bgcolor=16213e&color=53d8fb&margin=10`;
-  img.style.display = 'block';
-  document.getElementById('qr-hint').style.display = 'block';
+  EL.qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${url}&bgcolor=16213e&color=53d8fb&margin=10`;
+  EL.qrImg.style.display = 'block';
+  EL.qrHint.style.display = 'block';
 }
 
 window.copyCode = function() {
@@ -760,9 +756,10 @@ EL.gridSvg.addEventListener('click', e => {
   if (undo) { e.stopPropagation(); undoPlace(+undo.dataset.undo); }
 });
 
-document.querySelectorAll('.sheet-btn').forEach(btn => {
+const sheetBtns = document.querySelectorAll('.sheet-btn');
+sheetBtns.forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.sheet-btn').forEach(b => b.classList.remove('selected'));
+    sheetBtns.forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
     selectedSheet = btn.dataset.sheet;
   });

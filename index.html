@@ -75,7 +75,7 @@
 <div id="game" class="screen">
   <div class="game-header">
     <div class="game-players-mini" id="players-mini"></div>
-    <button class="btn-ghost btn-sm" onclick="cancelGame()">✕ Leave</button>
+    <button class="btn-ghost btn-sm" onclick="cancelGame()">Leave</button>
   </div>
 
   <div id="stuck-banner" class="stuck-banner" style="display:none">🚫 No moves left — you're done! Others are still playing.</div>
@@ -90,11 +90,9 @@
     <div class="dice-row">
       <div class="die-card" id="die0" onclick="dieCardClick(0)">
         <div class="die-svg-wrap" id="die0-svg"></div>
-        <div class="die-placed-mark" id="die0-mark" style="display:none">✓</div>
       </div>
       <div class="die-card" id="die1" onclick="dieCardClick(1)">
         <div class="die-svg-wrap" id="die1-svg"></div>
-        <div class="die-placed-mark" id="die1-mark" style="display:none">✓</div>
       </div>
     </div>
   </div>
@@ -104,7 +102,7 @@
       <div class="score-label">Score</div>
       <div class="score-value" id="score-display">0</div>
     </div>
-    <button id="confirm-btn" class="btn-success" onclick="confirmPlacement()" disabled>Confirm ✓</button>
+    <button id="confirm-btn" class="btn-success" onclick="confirmPlacement()" disabled>Confirm</button>
   </div>
 </div>
 
