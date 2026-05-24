@@ -93,10 +93,9 @@
   .die-card.selected { border-color: var(--accent2); background: rgba(83,216,251,.1); }
   .die-card.placed { border-color: var(--green); background: rgba(76,175,80,.1); opacity: .7; }
   .die-card-label { font-size: .65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
-  .die-type-name { font-size: .75rem; font-weight: 700; color: var(--text); text-transform: capitalize; }
-  .die-svg-wrap { width: 52px; height: 52px; }
-  .rotate-btn { font-size: 1.2rem; background: rgba(255,255,255,.08); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; color: var(--text); }
-  .die-placed-mark { position: absolute; top: 4px; right: 6px; font-size: .8rem; color: var(--green); }
+  .die-svg-wrap { width: 64px; height: 64px; }
+  .die-placed-mark { position: absolute; top: 4px; right: 6px; font-size: .9rem; color: var(--green); }
+  .die-rotate-hint { font-size: .6rem; color: var(--muted); margin-top: 2px; }
 
   /* Footer */
   .game-footer { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface); border-top: 1px solid rgba(255,255,255,.08); flex-shrink: 0; }
@@ -136,6 +135,13 @@
 <div id="lobby" class="screen active">
   <div class="logo">PIPE<span>LINE</span></div>
   <div class="subtitle">BY REINER KNIZIA</div>
+
+  <div id="resume-banner" class="card" style="display:none;border:2px solid var(--accent2);gap:10px;">
+    <h3>Game in Progress</h3>
+    <p style="font-size:.85rem;color:var(--muted);">You have an unfinished solo game. Continue where you left off?</p>
+    <button class="btn-secondary" onclick="resumeGame()">▶ Continue Game</button>
+    <button class="btn-ghost" onclick="discardSave()">✕ Discard & Start Fresh</button>
+  </div>
 
   <div class="card">
     <h3>Your Name</h3>
@@ -183,7 +189,7 @@
 <!-- ══════════════ GAME ══════════════ -->
 <div id="game" class="screen">
   <div class="game-header">
-    <div class="game-round">Round <strong id="round-display">1</strong> / <span id="max-rounds">12</span></div>
+    <div class="game-round">Round <strong id="round-display">1</strong></div>
     <div class="game-players-mini" id="players-mini"></div>
     <button class="btn-ghost" style="padding:6px 10px;font-size:.8rem;" onclick="cancelGame()">✕ Leave</button>
   </div>
@@ -197,20 +203,15 @@
   </div>
 
   <div class="dice-panel" id="dice-panel">
-    <div class="dice-panel-title">Roll — place both pieces</div>
     <div class="dice-row">
-      <div class="die-card" id="die0" onclick="selectDie(0)">
-        <div class="die-card-label">Die 1</div>
+      <div class="die-card" id="die0" onclick="dieCardClick(0)">
         <div class="die-svg-wrap" id="die0-svg"></div>
-        <div class="die-type-name" id="die0-name">—</div>
-        <button class="rotate-btn" onclick="rotateDie(event,0)">↺</button>
+        <div class="die-rotate-hint" id="die0-hint">tap to select</div>
         <div class="die-placed-mark" id="die0-mark" style="display:none">✓</div>
       </div>
-      <div class="die-card" id="die1" onclick="selectDie(1)">
-        <div class="die-card-label">Die 2</div>
+      <div class="die-card" id="die1" onclick="dieCardClick(1)">
         <div class="die-svg-wrap" id="die1-svg"></div>
-        <div class="die-type-name" id="die1-name">—</div>
-        <button class="rotate-btn" onclick="rotateDie(event,1)">↺</button>
+        <div class="die-rotate-hint" id="die1-hint">tap to select</div>
         <div class="die-placed-mark" id="die1-mark" style="display:none">✓</div>
       </div>
     </div>
@@ -346,10 +347,33 @@ let round    = 0;
 // ─────────────────────────────────────────────
 // OPENINGS HELPER
 // ─────────────────────────────────────────────
-const DIRS = ['N','E','S','W'];
+const DIRS    = ['N','E','S','W'];
+const OPP     = { N:'S', S:'N', E:'W', W:'E' };
+const DIR_RC  = { N:[-1,0], S:[1,0], E:[0,1], W:[0,-1] };
+
 function getOpenings(type, rot) {
   const base = BASE_OPENINGS[type] || [];
   return new Set(base.map(d => DIRS[(DIRS.indexOf(d) + rot) % 4]));
+}
+
+// True if piece (type,rot) at (r,c) has at least one opening that connects
+// to a matching opening on an already-placed neighbour in `g`.
+function isValidPlacementOnGrid(g, r, c, type, rot) {
+  const rows = g.length, cols = g[0].length;
+  const openings = getOpenings(type, rot);
+  for (const dir of openings) {
+    const [dr, dc] = DIR_RC[dir];
+    const nr = r + dr, nc = c + dc;
+    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+    const nb = g[nr][nc];
+    if (nb && getOpenings(nb.type, nb.rot).has(OPP[dir])) return true;
+  }
+  return false;
+}
+
+// Wrapper using the live grid
+function isValidPlacement(r, c, type, rot) {
+  return isValidPlacementOnGrid(grid, r, c, type, rot);
 }
 
 // ─────────────────────────────────────────────
@@ -452,24 +476,18 @@ function buildGrid() {
       const cx = G + c * CELL, cy = G + r * CELL;
 
       if (!cell) {
-        // A cell is valid only if adjacent to a pre-existing (not placed this round) piece
-        const adjToExisting = isAdjacentToPreExisting(r, c);
-        const blocked = !adjToExisting;
+        // Valid if current die's piece (with its current rotation) connects pipe-to-pipe
+        const curType = diceTypes[activeDie], curRot = diceRots[activeDie];
+        const valid = curType ? isValidPlacement(r, c, curType, curRot) : false;
 
-        // Subtle hint tint for valid adjacent cells
-        if (adjToExisting)
+        if (valid)
           html += `<rect x="${cx+1}" y="${cy+1}" width="${CELL-2}" height="${CELL-2}" fill="rgba(83,216,251,.07)" rx="2"/>`;
-
-        // Dim overlay for blocked cells
-        if (blocked)
-          html += `<rect x="${cx}" y="${cy}" width="${CELL}" height="${CELL}" fill="rgba(0,0,0,.30)" rx="2"/>`;
+        else
+          html += `<rect x="${cx}" y="${cy}" width="${CELL}" height="${CELL}" fill="rgba(0,0,0,.28)" rx="2"/>`;
 
         html += `<rect x="${cx}" y="${cy}" width="${CELL}" height="${CELL}"
-          fill="transparent" rx="2"
-          data-r="${r}" data-c="${c}"
-          data-blocked="${blocked}"
-          class="cell-click"
-          style="cursor:${blocked ? 'not-allowed' : 'pointer'}"/>`;
+          fill="transparent" rx="2" data-r="${r}" data-c="${c}"
+          class="cell-click" style="cursor:${valid ? 'pointer' : 'not-allowed'}"/>`;
       }
 
       if (cell) {
@@ -527,8 +545,8 @@ function cellClicked(r, c) {
   }
   if (grid[r][c]) return; // occupied
 
-  // Both pieces must be adjacent to a pre-existing piece
-  if (!isAdjacentToPreExisting(r, c)) {
+  // Piece must pipe-connect to at least one neighbour
+  if (!isValidPlacement(r, c, diceTypes[activeDie], diceRots[activeDie])) {
     showToast('⚠️ Must connect to existing pipe');
     return;
   }
@@ -552,34 +570,28 @@ function cellClicked(r, c) {
 // VALIDATION
 // ─────────────────────────────────────────────
 function canPlayerMove(g) {
-  // Collect all empty cells adjacent to existing pieces (potential first placements)
-  const rows = sheetCfg.rows, cols = sheetCfg.cols;
-  const firstCandidates = [];
-  for (let r = 0; r < rows; r++)
-    for (let c = 0; c < cols; c++)
-      if (!g[r][c] && isAdjacentOnGrid(g, r, c, rows, cols))
-        firstCandidates.push([r, c]);
-
-  if (firstCandidates.length === 0) return false;
-
-  // For each first candidate, check if a second placement is possible
-  // (adjacent to existing pieces OR adjacent to the first piece itself)
-  for (const [r1, c1] of firstCandidates) {
-    // Simulate placing die 1 here
-    const tempGrid = g.map(row => [...row]);
-    tempGrid[r1][c1] = { type: 'x', rot: 0 }; // placeholder
-    for (let r2 = 0; r2 < rows; r2++)
-      for (let c2 = 0; c2 < cols; c2++)
-        if (!tempGrid[r2][c2] && isAdjacentOnGrid(tempGrid, r2, c2, rows, cols))
-          return true; // a valid second placement exists
+  const rows = g.length, cols = g[0].length;
+  const t1 = diceTypes[0], t2 = diceTypes[1];
+  // Try every rotation of die1 at every empty cell
+  for (let rot1 = 0; rot1 < 4; rot1++) {
+    for (let r1 = 0; r1 < rows; r1++) {
+      for (let c1 = 0; c1 < cols; c1++) {
+        if (g[r1][c1]) continue;
+        if (!isValidPlacementOnGrid(g, r1, c1, t1, rot1)) continue;
+        // Simulate placing die 1
+        const g2 = g.map(row => [...row]);
+        g2[r1][c1] = { type: t1, rot: rot1 };
+        // Try every rotation of die2 at every other empty cell
+        for (let rot2 = 0; rot2 < 4; rot2++)
+          for (let r2 = 0; r2 < rows; r2++)
+            for (let c2 = 0; c2 < cols; c2++) {
+              if (g2[r2][c2]) continue;
+              if (isValidPlacementOnGrid(g2, r2, c2, t2, rot2)) return true;
+            }
+      }
+    }
   }
   return false;
-}
-
-function isAdjacentOnGrid(g, r, c, rows, cols) {
-  return [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].some(([nr,nc]) =>
-    nr >= 0 && nr < rows && nc >= 0 && nc < cols && g[nr][nc] !== null
-  );
 }
 
 function placementValid() {
@@ -587,13 +599,6 @@ function placementValid() {
   return placedThisRound.length === 2;
 }
 
-// Helper: is (r,c) adjacent to any occupied cell (including pieces placed this round)?
-function isAdjacentToPreExisting(r, c) {
-  const rows = sheetCfg.rows, cols = sheetCfg.cols;
-  return [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].some(([nr,nc]) =>
-    nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] !== null
-  );
-}
 
 function updateConfirmBtn() {
   const btn = document.getElementById('confirm-btn');
@@ -660,38 +665,36 @@ function allOnesConnected() {
 // ─────────────────────────────────────────────
 function updateDicePanel() {
   for (let i = 0; i < 2; i++) {
-    const card = document.getElementById(`die${i}`);
+    const card    = document.getElementById(`die${i}`);
     const svgWrap = document.getElementById(`die${i}-svg`);
-    const namEl = document.getElementById(`die${i}-name`);
-    const mark = document.getElementById(`die${i}-mark`);
+    const hint    = document.getElementById(`die${i}-hint`);
+    const mark    = document.getElementById(`die${i}-mark`);
 
     const color = dicePlaced[i] ? '#4caf50' : (i === activeDie ? '#53d8fb' : '#888');
-    svgWrap.innerHTML = makeDieSVG(diceTypes[i], diceRots[i], color);
-    namEl.textContent = diceTypes[i] ? diceTypes[i].replace('-',' ') : '—';
+    svgWrap.innerHTML = makeDieSVG(diceTypes[i], diceRots[i], color, 64);
     mark.style.display = dicePlaced[i] ? 'block' : 'none';
+    hint.textContent = dicePlaced[i] ? '' : (i === activeDie ? 'tap to rotate ↺' : 'tap to select');
+    hint.style.color = i === activeDie ? 'var(--accent2)' : 'var(--muted)';
     card.className = 'die-card' + (dicePlaced[i] ? ' placed' : (i === activeDie ? ' selected' : ''));
   }
 }
 
-window.selectDie = function(i) {
+// Tap die card: if not active → select it; if active → rotate it
+window.dieCardClick = function(i) {
   if (dicePlaced[i]) return;
-  activeDie = i;
-  updateDicePanel();
-};
-
-window.rotateDie = function(e, i) {
-  e.stopPropagation();
-  if (dicePlaced[i]) return;
-  diceRots[i] = (diceRots[i] + 1) % 4;
-
-  // If already previewed on grid, update the grid cell too
-  const placed = placedThisRound.find(p => p.dieIdx === i);
-  if (placed) {
-    grid[placed.r][placed.c].rot = diceRots[i];
-    buildGrid();
-    calcScore();
+  if (activeDie !== i) {
+    activeDie = i;
+  } else {
+    diceRots[i] = (diceRots[i] + 1) % 4;
+    // If already placed on grid, update that cell's rotation too
+    const placed = placedThisRound.find(p => p.dieIdx === i);
+    if (placed) {
+      grid[placed.r][placed.c].rot = diceRots[i];
+      calcScore();
+    }
   }
   updateDicePanel();
+  buildGrid(); // refresh valid-cell highlights whenever die changes
 };
 
 // ─────────────────────────────────────────────
@@ -729,17 +732,18 @@ window.confirmPlacement = async function() {
   const stuck = !canPlayerMove(grid);
 
   if (isSolo) {
-    // Solo: advance directly
     myStuck = stuck;
     updateStuckUI();
     round++;
     const maxR = sheetCfg.maxRounds;
     document.getElementById('round-display').textContent = round + 1;
     if (stuck || round >= maxR) {
+      clearSave();
       showResults([{name: myName, score, stuck}]);
     } else {
       const dice = rollDice();
       startRound(dice.d1, dice.d2);
+      saveGame();
     }
     return;
   }
@@ -786,7 +790,6 @@ function initLocalGame(sheet) {
   myStuck = false;
   round = 0;
   document.getElementById('round-display').textContent = 1;
-  document.getElementById('max-rounds').textContent = sheetCfg.maxRounds;
   document.getElementById('score-display').textContent = 0;
   updateStuckUI();
 }
@@ -885,7 +888,6 @@ function listenRoom() {
       }
       round = data.round;
       document.getElementById('round-display').textContent = round + 1;
-      document.getElementById('max-rounds').textContent = data.maxRounds;
       renderMiniPlayers(players);
 
       // New dice
@@ -1070,6 +1072,60 @@ window.cancelGame = function() {
 };
 
 // ─────────────────────────────────────────────
+// GAME STATE PERSISTENCE (solo — survive refresh)
+// ─────────────────────────────────────────────
+const SAVE_KEY = 'pipeline_solo_save';
+
+function saveGame() {
+  if (!isSolo || !sheetCfg) return;
+  localStorage.setItem(SAVE_KEY, JSON.stringify({
+    sheet: Object.keys(SHEETS).find(k => SHEETS[k] === sheetCfg),
+    grid, round, myScore, myStuck,
+    diceTypes, diceRots, dicePlaced, placedThisRound, activeDie
+  }));
+}
+
+function clearSave() {
+  localStorage.removeItem(SAVE_KEY);
+}
+
+function hasSave() {
+  return !!localStorage.getItem(SAVE_KEY);
+}
+
+function resumeGame() {
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (!raw) return false;
+  try {
+    const s = JSON.parse(raw);
+    isSolo = true;
+    myName = document.getElementById('player-name').value.trim() || localStorage.getItem(NAME_KEY) || 'Player';
+    sheetCfg = SHEETS[s.sheet];
+    grid = s.grid;
+    round = s.round;
+    myScore = s.myScore;
+    myStuck = s.myStuck;
+    diceTypes = s.diceTypes;
+    diceRots = s.diceRots;
+    dicePlaced = s.dicePlaced;
+    placedThisRound = s.placedThisRound || [];
+    activeDie = s.activeDie || 0;
+    document.getElementById('round-display').textContent = round + 1;
+    document.getElementById('score-display').textContent = myScore;
+    updateStuckUI();
+    updateDicePanel();
+    updateConfirmBtn();
+    buildGrid();
+    document.getElementById('players-mini').innerHTML = '';
+    showScreen('game');
+    return true;
+  } catch(e) { clearSave(); return false; }
+}
+
+// Auto-save after every confirm and round advance
+const _origConfirm = window.confirmPlacement;
+
+// ─────────────────────────────────────────────
 // PERSIST PLAYER NAME
 // ─────────────────────────────────────────────
 const NAME_KEY = 'pipeline_player_name';
@@ -1102,6 +1158,13 @@ function showToast(msg) {
 }
 
 window.addEventListener('resize', () => { if (sheetCfg) buildGrid(); });
+
+// Show resume banner if a saved solo game exists
+window.discardSave = function() {
+  clearSave();
+  document.getElementById('resume-banner').style.display = 'none';
+};
+if (hasSave()) document.getElementById('resume-banner').style.display = 'flex';
 </script>
 </body>
 </html>
