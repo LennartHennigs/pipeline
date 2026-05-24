@@ -103,6 +103,8 @@
   .score-display { display: flex; flex-direction: column; }
   .score-label { font-size: .65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
   .score-value { font-size: 1.6rem; font-weight: 900; color: var(--accent2); }
+  #confirm-btn.done { background: #2a5c2e; color: #6fcf74; border: 1px solid #4caf50; cursor: default; transform: none; opacity: 1; }
+  #confirm-btn.done::after { content: ' Sent'; }
 
   /* ── Results ── */
   #results { gap: 16px; justify-content: center; align-items: center; }
@@ -696,6 +698,10 @@ function startRound(d1, d2) {
   activeDie = 0;
   // Vibrate to signal new dice are ready
   if (!myStuck) navigator.vibrate?.([80, 40, 80]);
+  // Reset confirm button state
+  const btn = document.getElementById('confirm-btn');
+  btn.textContent = 'Confirm ✓';
+  btn.classList.remove('done');
   updateDicePanel();
   updateConfirmBtn();
   buildGrid();
@@ -727,7 +733,10 @@ window.confirmPlacement = async function() {
   // Multiplayer: write to Firebase
   const playerRef = ref(db, `rooms/${roomCode}/players/${myId}`);
   await update(playerRef, { confirmed: true, score, stuck });
-  document.getElementById('confirm-btn').disabled = true;
+  const btn = document.getElementById('confirm-btn');
+  btn.disabled = true;
+  btn.textContent = '✓ Done';
+  btn.classList.add('done');
 };
 
 // ─────────────────────────────────────────────
