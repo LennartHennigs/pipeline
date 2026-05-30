@@ -3,7 +3,7 @@ import { getDatabase, ref, set, get, update, onValue, remove }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 import { T, LANG, applyTranslations } from './i18n.js';
 
-const BUILD_DATE = '2026-05-30T19:57:26Z';
+const BUILD_DATE = '2026-05-30T20:22:00Z';
 
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyA8_C7USI23YHRdDWjOuKbLrUN8HYgRHD0",
@@ -149,13 +149,18 @@ function getOpenings(type, rot) {
 
 function isValidPlacementOnGrid(g, r, c, type, rot) {
   const rows = g.length, cols = g[0].length;
+  let hasConnection = false;
   for (const dir of getOpenings(type, rot)) {
     const [dr, dc] = DIR_RC[dir];
     const nr = r + dr, nc = c + dc;
-    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
-    if (g[nr][nc]) return true;
+    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue; // board edge — fine
+    const nb = g[nr][nc];
+    if (!nb) continue; // empty cell — fine
+    const opp = DIRS[(DIR_INDEX[dir] + 2) % 4];
+    if (!getOpenings(nb.type, nb.rot).has(opp)) return false; // opening faces a closed wall
+    hasConnection = true;
   }
-  return false;
+  return hasConnection;
 }
 
 const isValidPlacement = (r, c, type, rot) => isValidPlacementOnGrid(grid, r, c, type, rot);
@@ -845,7 +850,7 @@ EL.hintsToggle.addEventListener('change', e => {
 
 applyTranslations();
 
-// Falls back to document.lastModified when 2026-05-30T19:57:26Z wasn't injected (local dev).
+// Falls back to document.lastModified when 2026-05-30T20:22:00Z wasn't injected (local dev).
 const _locales = { de: 'de-DE', en: 'en-US' };
 EL.buildVersion.textContent = new Date(
   BUILD_DATE.startsWith('%%') ? document.lastModified : BUILD_DATE
