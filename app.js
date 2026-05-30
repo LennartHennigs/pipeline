@@ -1,6 +1,9 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getDatabase, ref, set, get, update, onValue, remove }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+import { T, LANG, applyTranslations } from './i18n.js';
+
+const BUILD_DATE = '2026-05-30T19:57:26Z';
 
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyA8_C7USI23YHRdDWjOuKbLrUN8HYgRHD0",
@@ -99,6 +102,10 @@ const EL = {
   soloRatingText:document.getElementById('solo-rating-text'),
   qrImg:        document.getElementById('qr-img'),
   qrHint:       document.getElementById('qr-hint'),
+  cameraOverlay:document.getElementById('camera-overlay'),
+  cameraVideo:  document.getElementById('camera-video'),
+  scanBtn:      document.getElementById('scan-btn'),
+  buildVersion: document.getElementById('build-version'),
 };
 
 // ── State ──
@@ -258,7 +265,7 @@ function cellClicked(r, c) {
   }
   if (grid[r][c]) return;
   if (!isValidPlacement(r, c, diceTypes[activeDie], diceRots[activeDie])) {
-    showToast('⚠️ Piece must connect to a neighbour');
+    showToast(T('mustConnect'));
     return;
   }
   dicePlaced[activeDie] = true;
@@ -460,9 +467,9 @@ window.startSolo = function() {
 // ── Multiplayer — create / join ──
 
 function multiplayerSetup() {
-  if (!firebaseReady) { showToast('Firebase not configured — try Solo mode'); return false; }
+  if (!firebaseReady) { showToast(T('firebaseError')); return false; }
   myName = EL.nameInput.value.trim();
-  if (!myName) { showToast('Enter your name first'); return false; }
+  if (!myName) { showToast(T('enterName')); return false; }
   isSolo = false;
   return true;
 }
@@ -494,10 +501,10 @@ window.joinRoom = async function() {
   if (!multiplayerSetup()) return;
   isHost = false;
   const code = EL.joinCodeInput.value.trim().toUpperCase();
-  if (code.length !== 4) { showToast('Enter a 4-letter room code'); return; }
+  if (code.length !== 4) { showToast(T('enterCode')); return; }
   const snap = await get(ref(db, `rooms/${code}`));
-  if (!snap.exists()) { showToast('Room not found'); return; }
-  if (snap.val().phase !== 'waiting') { showToast('Game already started'); return; }
+  if (!snap.exists()) { showToast(T('roomNotFound')); return; }
+  if (snap.val().phase !== 'waiting') { showToast(T('gameStarted')); return; }
   await update(ref(db, `rooms/${code}/players/${myId}`),
     { name: myName, score: 0, confirmed: false, stuck: false });
   openWaitingRoom(code, false);
@@ -617,7 +624,7 @@ function renderWaitingPlayers(players) {
     <div class="player-item">
       ${avatarHTML(p.name, i, 'player-avatar')}
       <div class="player-name">${p.name}</div>
-      ${id === myId ? '<div class="player-badge">You</div>' : ''}
+      ${id === myId ? `<div class="player-badge">${T('youBadge')}</div>` : ''}
     </div>`).join('');
 }
 
@@ -643,7 +650,7 @@ function showResults(sorted) {
     const winsLabel = winsSpan(p.wins, 'result-wins');
     return `<div class="result-row">
       <div class="result-rank ${i===0?'gold':''}">${medals[i] ?? i+1}</div>
-      <div class="result-name">${p.name}${p.stuck?' <span class="result-note">(finished early)</span>':''}${winsLabel}</div>
+      <div class="result-name">${p.name}${p.stuck?` <span class="result-note">${T('finishedEarly')}</span>`:''}${winsLabel}</div>
       <div class="result-score">${p.score}</div>
     </div>`;
   }).join('');
@@ -653,13 +660,13 @@ function showResults(sorted) {
     const rating = SOLO_RATINGS.find(r => sorted[0].score >= r.min && sorted[0].score <= r.max);
     EL.soloRatingText.textContent = rating?.label ?? '—';
     EL.soloRatingBox.style.display = 'block';
-    footer.innerHTML = `<button class="btn-primary" onclick="playAgain()">Play Again</button>`;
+    footer.innerHTML = `<button class="btn-primary" onclick="playAgain()">${T('playAgain')}</button>`;
   } else {
     EL.soloRatingBox.style.display = 'none';
     footer.innerHTML = isHost
-      ? `<button class="btn-success" onclick="playAgainSamePlayers()">Play Again (same room) →</button>
-         <button class="btn-ghost" onclick="leaveRoom()">← Leave Room</button>`
-      : `<button class="btn-ghost" onclick="leaveRoom()">← Leave Room</button>`;
+      ? `<button class="btn-success" onclick="playAgainSamePlayers()">${T('playAgainRoom')}</button>
+         <button class="btn-ghost" onclick="leaveRoom()">${T('leaveRoom')}</button>`
+      : `<button class="btn-ghost" onclick="leaveRoom()">${T('leaveRoom')}</button>`;
   }
 }
 
@@ -675,7 +682,7 @@ window.leaveRoom = function() {
 };
 
 window.cancelGame = function() {
-  if (!confirm('Leave the game? Your progress will be lost.')) return;
+  if (!confirm(T('leaveConfirm'))) return;
   stopListeningRoom();
   if (!isSolo && roomRef) {
     isHost ? remove(roomRef) : remove(ref(db, `rooms/${roomCode}/players/${myId}`));
@@ -740,7 +747,42 @@ function showQR() {
 }
 
 window.copyCode = function() {
-  navigator.clipboard?.writeText(roomCode).then(() => showToast('Code copied!'));
+  navigator.clipboard?.writeText(roomCode).then(() => showToast(T('codeCopied')));
+};
+
+// ── Camera QR scanning ──
+
+let _cameraStream = null;
+let _detector     = null; // lazily created; reused across camera sessions
+
+window.startCameraQR = async function() {
+  try {
+    _cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    EL.cameraVideo.srcObject = _cameraStream;
+    EL.cameraOverlay.style.display = 'flex';
+    if (!_detector) _detector = new BarcodeDetector({ formats: ['qr_code'] });
+    const scan = async () => {
+      if (_cameraStream === null) return;
+      try {
+        const codes = await _detector.detect(EL.cameraVideo);
+        for (const bc of codes) {
+          try {
+            const u    = new URL(bc.rawValue);
+            const code = u.searchParams.get('join');
+            if (code) { EL.joinCodeInput.value = code.toUpperCase(); stopCamera(); return; }
+          } catch (e) { console.warn('QR URL parse:', e); }
+        }
+      } catch (e) { console.warn('BarcodeDetector:', e); }
+      if (_cameraStream !== null) setTimeout(scan, 250);
+    };
+    scan();
+  } catch { showToast(T('cameraUnsupported')); }
+};
+
+window.stopCamera = function stopCamera() {
+  if (_cameraStream) { _cameraStream.getTracks().forEach(t => t.stop()); _cameraStream = null; }
+  EL.cameraOverlay.style.display = 'none';
+  EL.cameraVideo.srcObject = null;
 };
 
 // ── Utilities ──
@@ -751,6 +793,8 @@ function randomCode() {
 
 function showToast(msg) {
   EL.toast.textContent = msg;
+  EL.toast.style.cursor = '';
+  EL.toast.onclick = null;
   EL.toast.classList.add('show');
   setTimeout(() => EL.toast.classList.remove('show'), 2500);
 }
@@ -799,5 +843,29 @@ EL.hintsToggle.addEventListener('change', e => {
   if (sheetCfg) buildGrid();
 });
 
-if ('serviceWorker' in navigator)
-  navigator.serviceWorker.register('sw.js').catch(console.warn);
+applyTranslations();
+
+// Falls back to document.lastModified when 2026-05-30T19:57:26Z wasn't injected (local dev).
+const _locales = { de: 'de-DE', en: 'en-US' };
+EL.buildVersion.textContent = new Date(
+  BUILD_DATE.startsWith('%%') ? document.lastModified : BUILD_DATE
+).toLocaleString(_locales[LANG] ?? 'en-US', { dateStyle: 'short', timeStyle: 'short' });
+
+if (!('BarcodeDetector' in window)) EL.scanBtn.style.display = 'none';
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      nw.addEventListener('statechange', () => {
+        if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+          // Persistent toast (intentionally bypasses showToast's auto-hide).
+          EL.toast.textContent = T('newVersion');
+          EL.toast.classList.add('show');
+          EL.toast.style.cursor = 'pointer';
+          EL.toast.onclick = () => location.reload();
+        }
+      });
+    });
+  }).catch(console.warn);
+}

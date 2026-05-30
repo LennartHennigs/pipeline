@@ -1,9 +1,9 @@
-const CACHE = 'pipeline-v3';
+const CACHE = 'pipeline-v4';
 const BASE = self.registration.scope;
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll([BASE, BASE + 'app.js', BASE + 'style.css', BASE + 'sw.js']))
+    caches.open(CACHE).then(c => c.addAll([BASE, BASE + 'app.js', BASE + 'i18n.js', BASE + 'style.css', BASE + 'sw.js', BASE + 'manifest.json']))
   );
   self.skipWaiting();
 });
