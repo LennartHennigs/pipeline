@@ -1,17 +1,18 @@
 # Pipeline — Claude Context
 
 Vanilla-JS PWA implementation of the **Pipeline** board game by Reiner Knizia.
-No build tools, no framework — just `index.html`, `app.js`, `style.css`, `sw.js`.
-Deployed to GitHub Pages via `.github/workflows/deploy.yml` which injects Firebase secrets.
+No build tools, no framework — just `index.html`, `app.js`, `i18n.js`, `style.css`, `sw.js`.
+Deployed to GitHub Pages via `.github/workflows/deploy.yml` which injects Firebase secrets and `%%BUILD_DATE%%`.
 
 ## Architecture
 
 | File | Role |
 |------|------|
-| `app.js` | All game logic, Firebase sync, SVG rendering (~800 lines) |
-| `index.html` | Static shell — 4 screens: lobby, waiting, game, results |
+| `app.js` | All game logic, Firebase sync, SVG rendering (~870 lines) |
+| `i18n.js` | Language detection (DE/EN), translation table, `T()` helper, `applyTranslations()` |
+| `index.html` | Static shell — 4 screens + camera overlay; text marked with `data-i18n` attrs |
 | `style.css` | CSS custom properties, dark theme, mobile-first |
-| `sw.js` | Service-worker cache (bump version on deploy) |
+| `sw.js` | Service-worker cache `pipeline-v4` — stale-while-revalidate (bump version on deploy) |
 
 ## Key Game Rules
 
@@ -22,8 +23,11 @@ Deployed to GitHub Pages via `.github/workflows/deploy.yml` which injects Fireba
 
 ## Code Patterns
 
+### i18n
+`LANG` is detected once at module load (`navigator.language.startsWith('de')`). `T(key)` looks up the current language, falling back to English. `applyTranslations()` walks `[data-i18n]` elements and sets `textContent` (or `placeholder` for `data-i18n-attr="placeholder"`). Called once at startup. Dynamic strings in JS use `T()` directly.
+
 ### DOM cache
-All elements cached at startup in `EL` (single-element refs) and `DIE_EL` (array of `{card, svg}` for each die). Never call `getElementById` at runtime.
+All elements cached at startup in `EL` (single-element refs) and `DIE_EL` (array of `{card, svg}` for each die). Never call `getElementById` at runtime. Camera elements (`cameraOverlay`, `cameraVideo`, `scanBtn`) are in `EL` too.
 
 ### Rendering
 `buildGrid()` rebuilds the entire SVG innerHTML on every change (no virtual DOM). Called on: cell click, undo, die tap, resize, round start.
@@ -54,13 +58,20 @@ State written per-player: `score`, `confirmed`, `stuck`. Host reads `allConfirme
 | Accent / 5-point edges | `#e94560` red |
 | 3-point edges | `#ffd700` gold |
 
+### Camera QR scanning
+`window.startCameraQR` — opens rear camera via `getUserMedia`, runs `BarcodeDetector.detect()` in a `setTimeout(250ms)` loop, auto-fills `#join-code` when a `?join=` URL is found. The scan button is hidden at startup if `BarcodeDetector` is unavailable. `window.stopCamera` kills the stream and hides the overlay; `_cameraStream === null` is the canonical "not scanning" signal.
+
+### Build date
+`BUILD_DATE` constant holds `%%BUILD_DATE%%`, replaced by `deploy.yml` with a UTC ISO timestamp. Falls back to `document.lastModified` in local dev. Displayed as a tiny version stamp at the bottom of the lobby.
+
 ### Constants worth knowing
 - `DIE1` / `DIE2` — the six faces of each die (pipe types)
 - `SHEETS` — `front` (5×5, 12 rounds) and `back` (6×5, 14 rounds), includes `prePlaced` corners and edge arrays
-- `SOLO_RATINGS` — score → label table
+- `SOLO_RATINGS` — score → label table (labels are in German by design)
 - `SAVE_KEY` / `NAME_KEY` — localStorage keys
 
 ## What NOT to change
 - Placement validation is **adjacency-only** by design (not opening-match). Don't re-add opening checks.
 - `canPlayerMove` uses a plain truthy object as a cell sentinel — it never calls `getOpenings` on it, so the type string doesn't matter.
 - iOS zoom is suppressed via `gesturestart`/`gesturechange` events (not `user-scalable=no`, which Safari ignores).
+- `showToast()` clears `onclick` and cursor on each call — the SW update notification intentionally sets them after calling it to make the toast persistent and clickable.

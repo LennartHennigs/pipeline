@@ -18,67 +18,80 @@
   <div class="subtitle">BY REINER KNIZIA</div>
 
   <div id="resume-banner" class="card resume-banner">
-    <h3>Game in Progress</h3>
-    <p class="card-subtitle">You have an unfinished solo game. Continue where you left off?</p>
-    <button class="btn-secondary" onclick="resumeGame()">▶ Continue Game</button>
-    <button class="btn-ghost" onclick="discardSave()">✕ Discard &amp; Start Fresh</button>
+    <h3 data-i18n="gameInProgress">Game in Progress</h3>
+    <p class="card-subtitle" data-i18n="unfinishedGame">You have an unfinished solo game. Continue where you left off?</p>
+    <button class="btn-secondary" onclick="resumeGame()" data-i18n="continueGame">▶ Continue Game</button>
+    <button class="btn-ghost" onclick="discardSave()" data-i18n="discardStart">✕ Discard &amp; Start Fresh</button>
   </div>
 
   <div class="card">
-    <h3>Your Name</h3>
-    <input id="player-name" type="text" placeholder="Enter your name" maxlength="16" autocomplete="off">
+    <h3 data-i18n="yourName">Your Name</h3>
+    <input id="player-name" type="text" placeholder="Enter your name" maxlength="16" autocomplete="off"
+           data-i18n="namePlaceholder" data-i18n-attr="placeholder">
   </div>
 
   <div class="card">
-    <h3>New Game</h3>
+    <h3 data-i18n="newGame">New Game</h3>
     <div class="sheet-pick">
-      <button class="sheet-btn selected" data-sheet="front">Front<br><small>5×5 · 12 rounds</small></button>
-      <button class="sheet-btn" data-sheet="back">Back<br><small>5×6 · 14 rounds</small></button>
+      <button class="sheet-btn selected" data-sheet="front">
+        <span data-i18n="frontSheet">Front</span><br>
+        <small data-i18n="frontDetails">5×5 · 12 rounds</small>
+      </button>
+      <button class="sheet-btn" data-sheet="back">
+        <span data-i18n="backSheet">Back</span><br>
+        <small data-i18n="backDetails">5×6 · 14 rounds</small>
+      </button>
     </div>
     <label class="hint-toggle-row">
       <input type="checkbox" id="hints-toggle" checked>
-      Show placement hints
+      <span data-i18n="showHints">Show placement hints</span>
     </label>
-    <button class="btn-primary" onclick="createRoom()">Create Room</button>
-    <button class="btn-ghost" onclick="startSolo()">Solo Game</button>
+    <button class="btn-primary" onclick="createRoom()" data-i18n="createRoom">Create Room</button>
+    <button class="btn-ghost" onclick="startSolo()" data-i18n="soloGame">Solo Game</button>
   </div>
 
-  <div class="or-divider">— or —</div>
+  <div class="or-divider" data-i18n="orDivider">— or —</div>
 
   <div class="card">
-    <h3>Join Game</h3>
-    <input id="join-code" type="text" placeholder="Room code (e.g. ABCD)" maxlength="4" autocomplete="off" class="input-code">
-    <button class="btn-secondary" onclick="joinRoom()">Join Room</button>
+    <h3 data-i18n="joinGame">Join Game</h3>
+    <div class="join-row">
+      <input id="join-code" type="text" placeholder="Room code (e.g. ABCD)" maxlength="4" autocomplete="off"
+             class="input-code" data-i18n="roomCodePlaceholder" data-i18n-attr="placeholder">
+      <button class="btn-icon" id="scan-btn" onclick="startCameraQR()" title="Scan QR">📷</button>
+    </div>
+    <button class="btn-secondary" onclick="joinRoom()" data-i18n="joinRoom">Join Room</button>
   </div>
+
+  <div class="build-version" id="build-version"></div>
 </div>
 
 <!-- ══════════════ WAITING ROOM ══════════════ -->
 <div id="waiting" class="screen">
   <div class="room-code-box">
-    <div class="room-code-label">Room Code</div>
+    <div class="room-code-label" data-i18n="roomCodeLabel">Room Code</div>
     <div class="room-code" id="display-code" onclick="copyCode()">····</div>
-    <div class="room-code-hint">Tap to copy · Share with friends</div>
+    <div class="room-code-hint" data-i18n="tapToCopy">Tap to copy · Share with friends</div>
     <div class="qr-wrap">
       <img id="qr-img" class="qr-img" src="" alt="QR Code">
-      <div id="qr-hint" class="qr-hint">Scan to join on another phone</div>
+      <div id="qr-hint" class="qr-hint" data-i18n="scanToJoin">Scan to join on another phone</div>
     </div>
   </div>
   <div class="player-list">
-    <h3>Players <span id="player-count">0</span></h3>
+    <h3><span data-i18n="players">Players</span> <span id="player-count">0</span></h3>
     <div id="waiting-players"></div>
   </div>
-  <button id="start-btn" class="btn-success" style="display:none" onclick="startGame()">Start Game ▶</button>
-  <button class="btn-ghost" onclick="leaveRoom()">← Leave</button>
+  <button id="start-btn" class="btn-success" style="display:none" onclick="startGame()" data-i18n="startGame">Start Game ▶</button>
+  <button class="btn-ghost" onclick="leaveRoom()" data-i18n="leave">← Leave</button>
 </div>
 
 <!-- ══════════════ GAME ══════════════ -->
 <div id="game" class="screen">
   <div class="game-header">
     <div class="game-players-mini" id="players-mini"></div>
-    <button class="btn-ghost btn-sm" onclick="cancelGame()">Leave</button>
+    <button class="btn-ghost btn-sm" onclick="cancelGame()" data-i18n="leaveGame">Leave</button>
   </div>
 
-  <div id="stuck-banner" class="stuck-banner" style="display:none">🚫 No moves left — you're done! Others are still playing.</div>
+  <div id="stuck-banner" class="stuck-banner" style="display:none" data-i18n="stuckMessage">🚫 No moves left — you're done! Others are still playing.</div>
 
   <div class="game-body">
     <div class="grid-wrap" id="grid-wrap">
@@ -99,22 +112,29 @@
 
   <div class="game-footer">
     <div class="score-display">
-      <div class="score-label">Score</div>
+      <div class="score-label" data-i18n="score">Score</div>
       <div class="score-value" id="score-display">0</div>
     </div>
-    <button id="confirm-btn" class="btn-success" onclick="confirmPlacement()" style="display:none">Confirm</button>
+    <button id="confirm-btn" class="btn-success" onclick="confirmPlacement()" style="display:none" data-i18n="confirm">Confirm</button>
   </div>
 </div>
 
 <!-- ══════════════ RESULTS ══════════════ -->
 <div id="results" class="screen">
-  <div class="results-title">🏆 Results</div>
+  <div class="results-title" data-i18n="results">🏆 Results</div>
   <div class="results-card" id="results-list"></div>
   <div class="solo-rating" id="solo-rating-box" style="display:none">
-    <div class="solo-rating-label">Your Rating</div>
+    <div class="solo-rating-label" data-i18n="yourRating">Your Rating</div>
     <div class="solo-rating-title" id="solo-rating-text"></div>
   </div>
   <div id="results-footer" class="results-footer"></div>
+</div>
+
+<!-- ══════════════ CAMERA OVERLAY ══════════════ -->
+<div id="camera-overlay" class="camera-overlay" style="display:none">
+  <video id="camera-video" class="camera-video" autoplay playsinline muted></video>
+  <div class="camera-frame"></div>
+  <button class="btn-ghost camera-cancel" onclick="stopCamera()" data-i18n="stopCamera">✕ Stop</button>
 </div>
 
 <div class="toast" id="toast"></div>

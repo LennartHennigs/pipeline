@@ -15,7 +15,7 @@ Play solo or multiplayer across multiple iPhones — no app install required. Th
 
 ### 2. GitHub Pages (hosting)
 
-The deploy workflow (`.github/workflows/deploy.yml`) injects Firebase credentials from GitHub Secrets into `app.js` at build time — the `%%FIREBASE_*%%` placeholders are replaced automatically.
+The deploy workflow (`.github/workflows/deploy.yml`) injects Firebase credentials and the build timestamp from GitHub Secrets/environment into `app.js` at build time — the `%%FIREBASE_*%%` and `%%BUILD_DATE%%` placeholders are replaced automatically.
 
 1. Add these secrets to your repo (**Settings → Secrets and variables → Actions**):
    - `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_DATABASE_URL`
@@ -37,10 +37,12 @@ npx serve .
 ## How to Play
 
 - **Solo**: Enter your name, pick a sheet, optionally toggle placement hints, tap "Solo Game"
-- **Multiplayer**: One player creates a room and shares the 4-letter code (or QR); others tap "Join Room"
+- **Multiplayer**: One player creates a room and shares the 4-letter code (or QR); others tap "Join Room" — or tap 📷 to scan the QR code directly with the camera
 - **Play again**: After results, the host can start another round with the same players — cumulative wins are tracked for the session
+- **Language**: The app auto-detects German or English based on your device language setting
 
 ### Rules (quick)
+
 - Each round: two dice are rolled for all players — each player places both pipe pieces on their own grid
 - A piece can go in any empty cell adjacent to at least one existing piece (including the pre-placed corner pieces)
 - Tap an already-placed (green) piece to undo and re-place it; tap a die card to rotate it
@@ -50,6 +52,7 @@ npx serve .
 - Game ends after 12 rounds (front sheet) or 14 rounds (back sheet), or when all players are stuck
 
 ### Solo Rating
+
 | Score | Title |
 |-------|-------|
 | 40    | Pipeline-Profi 🏆 |

@@ -23,6 +23,9 @@ jobs:
           sed -i "s|%%FIREBASE_MESSAGING_SENDER_ID%%|${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}|g" app.js
           sed -i "s|%%FIREBASE_APP_ID%%|${{ secrets.FIREBASE_APP_ID }}|g" app.js
 
+      - name: Inject build date
+        run: sed -i "s|%%BUILD_DATE%%|$(date -u +'%Y-%m-%dT%H:%M:%SZ')|g" app.js
+
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v4
         with:
