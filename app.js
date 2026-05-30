@@ -129,6 +129,7 @@ let activeDie      = 0;
 let myScore        = 0;
 let myStuck        = false;
 let round          = 0;
+let _pendingResults = null; // set when game is over, awaiting user tap to navigate to results
 let showHints      = true;
 let lastGameId     = -1;
 let lastRound      = -1;
@@ -402,17 +403,21 @@ function startRound(d1, d2) {
 }
 
 window.confirmPlacement = async function() {
+  if (_pendingResults) { showResults(_pendingResults); _pendingResults = null; return; }
   if (myStuck) return;
   const score = calcScore();
   const stuck = !canPlayerMove(grid);
 
   if (isSolo) {
+    const gameOver = stuck || round + 1 >= sheetCfg.maxRounds;
     myStuck = stuck;
-    updateStuckUI();
+    if (!gameOver) updateStuckUI(); // mid-game stuck — hide dice panel; keep visible on game-over
     round++;
-    if (stuck || round >= sheetCfg.maxRounds) {
+    if (gameOver) {
       clearSave();
-      showResults([{ name: myName, score, stuck }]);
+      _pendingResults = [{ name: myName, score, stuck }];
+      EL.confirmBtn.textContent = T('seeResults');
+      EL.confirmBtn.style.display = 'block';
     } else {
       const dice = rollDice();
       startRound(dice.d1, dice.d2);
@@ -459,6 +464,7 @@ function initLocalGame(sheet) {
 // ── Solo mode ──
 
 window.startSolo = function() {
+  _pendingResults = null;
   myName = EL.nameInput.value.trim() || 'Solo Player';
   isSolo = true;
   showHints = EL.hintsToggle.checked;
