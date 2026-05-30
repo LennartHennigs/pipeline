@@ -33,7 +33,6 @@ const BASE_OPENINGS = {
 
 const DIRS      = ['N','E','S','W'];
 const DIR_INDEX = { N:0, E:1, S:2, W:3 };  // O(1) replaces indexOf
-const OPP       = { N:'S', S:'N', E:'W', W:'E' };
 const DIR_RC    = { N:[-1,0], S:[1,0], E:[0,1], W:[0,-1] };
 const NEIGHBORS = Object.values(DIR_RC);
 
@@ -125,6 +124,7 @@ let myStuck        = false;
 let round          = 0;
 let showHints      = true;
 let lastGameId     = -1;
+let lastRound      = -1;
 let lastRoomData   = null;
 let lastPlayers    = null;
 
@@ -146,8 +146,7 @@ function isValidPlacementOnGrid(g, r, c, type, rot) {
     const [dr, dc] = DIR_RC[dir];
     const nr = r + dr, nc = c + dc;
     if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
-    const nb = g[nr][nc];
-    if (nb && getOpenings(nb.type, nb.rot).has(OPP[dir])) return true;
+    if (g[nr][nc]) return true;
   }
   return false;
 }
@@ -438,7 +437,7 @@ function initLocalGame(sheet) {
   grid = Array.from({ length: rows }, () => Array(cols).fill(null));
   for (const pp of sheetCfg.prePlaced)
     grid[pp.r][pp.c] = { type: pp.type, rot: pp.rot, prePlaced: true };
-  myScore = 0; myStuck = false; round = 0;
+  myScore = 0; myStuck = false; round = 0; lastRound = -1;
   diceTypes = [null, null]; diceRots = [0, 0];
   dicePlaced = [false, false]; placedThisRound = []; activeDie = 0;
   EL.scoreDisplay.textContent = 0;
@@ -531,8 +530,8 @@ function listenRoom() {
       round = data.round;
       renderMiniPlayers(players, data.wins);
 
-      if (data.dice?.d1 && data.dice?.d2 &&
-          (diceTypes[0] !== data.dice.d1 || diceTypes[1] !== data.dice.d2)) {
+      if (data.dice?.d1 && data.dice?.d2 && round !== lastRound) {
+        lastRound = round;
         startRound(data.dice.d1, data.dice.d2);
         if (myStuck) autoConfirm();
       }
