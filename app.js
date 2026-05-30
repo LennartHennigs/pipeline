@@ -3,7 +3,7 @@ import { getDatabase, ref, set, get, update, onValue, remove }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 import { T, LANG, applyTranslations } from './i18n.js';
 
-const BUILD_DATE = '2026-05-30T20:22:00Z';
+const BUILD_DATE = '2026-05-30T20:29:00Z';
 
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyA8_C7USI23YHRdDWjOuKbLrUN8HYgRHD0",
@@ -129,6 +129,7 @@ let activeDie      = 0;
 let myScore        = 0;
 let myStuck        = false;
 let round          = 0;
+let _pendingResults = null; // set when game is over, awaiting user tap to navigate to results
 let showHints      = true;
 let lastGameId     = -1;
 let lastRound      = -1;
@@ -402,17 +403,21 @@ function startRound(d1, d2) {
 }
 
 window.confirmPlacement = async function() {
+  if (_pendingResults) { showResults(_pendingResults); _pendingResults = null; return; }
   if (myStuck) return;
   const score = calcScore();
   const stuck = !canPlayerMove(grid);
 
   if (isSolo) {
+    const gameOver = stuck || round + 1 >= sheetCfg.maxRounds;
     myStuck = stuck;
-    updateStuckUI();
+    if (!gameOver) updateStuckUI(); // mid-game stuck — hide dice panel; keep visible on game-over
     round++;
-    if (stuck || round >= sheetCfg.maxRounds) {
+    if (gameOver) {
       clearSave();
-      showResults([{ name: myName, score, stuck }]);
+      _pendingResults = [{ name: myName, score, stuck }];
+      EL.confirmBtn.textContent = T('seeResults');
+      EL.confirmBtn.style.display = 'block';
     } else {
       const dice = rollDice();
       startRound(dice.d1, dice.d2);
@@ -459,6 +464,7 @@ function initLocalGame(sheet) {
 // ── Solo mode ──
 
 window.startSolo = function() {
+  _pendingResults = null;
   myName = EL.nameInput.value.trim() || 'Solo Player';
   isSolo = true;
   showHints = EL.hintsToggle.checked;
@@ -850,7 +856,7 @@ EL.hintsToggle.addEventListener('change', e => {
 
 applyTranslations();
 
-// Falls back to document.lastModified when 2026-05-30T20:22:00Z wasn't injected (local dev).
+// Falls back to document.lastModified when 2026-05-30T20:29:00Z wasn't injected (local dev).
 const _locales = { de: 'de-DE', en: 'en-US' };
 EL.buildVersion.textContent = new Date(
   BUILD_DATE.startsWith('%%') ? document.lastModified : BUILD_DATE
