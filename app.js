@@ -3,7 +3,7 @@ import { getDatabase, ref, set, get, update, onValue, remove }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 import { T, LANG, applyTranslations } from './i18n.js';
 
-const BUILD_DATE = '2026-05-31T07:26:03Z';
+const BUILD_DATE = '2026-05-31T08:05:03Z';
 
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyA8_C7USI23YHRdDWjOuKbLrUN8HYgRHD0",
@@ -150,17 +150,26 @@ function getOpenings(type, rot) {
 
 function isValidPlacementOnGrid(g, r, c, type, rot) {
   const rows = g.length, cols = g[0].length;
+  const newOpenings = getOpenings(type, rot);
   let hasConnection = false;
-  for (const dir of getOpenings(type, rot)) {
+
+  for (const dir of DIRS) {                            // check all 4 directions
     const [dr, dc] = DIR_RC[dir];
     const nr = r + dr, nc = c + dc;
     if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue; // board edge — fine
     const nb = g[nr][nc];
-    if (!nb) continue; // empty cell — fine
-    const opp = DIRS[(DIR_INDEX[dir] + 2) % 4];
-    if (!getOpenings(nb.type, nb.rot).has(opp)) return false; // opening faces a closed wall
-    hasConnection = true;
+    if (!nb) continue;                                 // empty cell — no constraint
+
+    const opp      = DIRS[(DIR_INDEX[dir] + 2) % 4];
+    const weOpen   = newOpenings.has(dir);
+    const theyOpen = getOpenings(nb.type, nb.rot).has(opp);
+
+    if ( weOpen &&  theyOpen) { hasConnection = true; continue; } // ✓ matched connection
+    if ( weOpen && !theyOpen) return false;  // ✗ our pipe into their closed wall
+    if (!weOpen &&  theyOpen) return false;  // ✗ their pipe into our closed wall
+    // both closed on this face → fine
   }
+
   return hasConnection;
 }
 
@@ -390,6 +399,26 @@ function startRound(d1, d2) {
   dicePlaced = [false, false];
   placedThisRound = [];
   activeDie = 0;
+
+  // Detect stuck before the round begins — catches cases where the rolled dice
+  // have no valid bidirectional placement anywhere on the current grid.
+  if (!canPlayerMove(grid)) {
+    myStuck = true;
+    const score = calcScore();
+    round++;
+    if (isSolo) {
+      clearSave();
+      _pendingResults = [{ name: myName, score, stuck: true }];
+      EL.confirmBtn.textContent = T('seeResults');
+      EL.confirmBtn.style.display = 'block';
+    } else {
+      updateMyPlayer({ confirmed: true, score, stuck: true });
+    }
+    updateStuckUI();
+    buildGrid();
+    return;
+  }
+
   if (!myStuck) {
     // Flash animation — navigator.vibrate not supported on iOS
     EL.dicePanel.classList.remove('dice-flash');
@@ -856,7 +885,7 @@ EL.hintsToggle.addEventListener('change', e => {
 
 applyTranslations();
 
-// Falls back to document.lastModified when 2026-05-31T07:26:03Z wasn't injected (local dev).
+// Falls back to document.lastModified when 2026-05-31T08:05:03Z wasn't injected (local dev).
 const _locales = { de: 'de-DE', en: 'en-US' };
 EL.buildVersion.textContent = new Date(
   BUILD_DATE.startsWith('%%') ? document.lastModified : BUILD_DATE
