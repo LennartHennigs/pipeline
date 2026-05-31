@@ -16,9 +16,9 @@ Deployed to GitHub Pages via `.github/workflows/deploy.yml` which injects Fireba
 
 ## Key Game Rules
 
-- **Placement**: adjacency only — a piece can go in any empty cell that neighbours an already-placed cell. Openings do **not** need to match for placement; they only matter for scoring.
+- **Placement**: fully bidirectional — both the new piece and every occupied neighbour must agree on each shared face: either both open toward each other, or both are closed. At least one matched connection required. Board edges are always fine (they score points).
 - **Scoring**: each pipe opening that faces a numbered edge scores that edge's value. Bonus +10 if every edge-1 opening is connected.
-- **Stuck**: a player is stuck when no empty cell adjacent to existing pieces remains (regardless of piece type/rotation).
+- **Stuck**: a player is stuck when `canPlayerMove` returns false — no valid bidirectional placement exists for both dice. Checked at round start (in `startRound`) and at round end (in `confirmPlacement`).
 - **Undo**: tap a green (this-round) pipe to undo and re-place it. Confirm button is disabled until both dice are placed.
 
 ## Code Patterns
@@ -35,13 +35,9 @@ All elements cached at startup in `EL` (single-element refs) and `DIE_EL` (array
 `pipePath(type, rot, color)` — returns SVG fragment for one pipe piece. Uses `PIPE_PTS` and `getOpenings()`. `NEIGHBORS = Object.values(DIR_RC)` is the hoisted direction-delta array for adjacency checks.
 
 ### Placement validation
-```js
-function isValidPlacementOnGrid(g, r, c) {
-  // adjacency only — no opening match needed
-  for (const [dr, dc] of NEIGHBORS) { ... }
-}
-```
-`canPlayerMove(g)` — checks if two pieces can still be placed (clones row arrays, marks first cell with a truthy sentinel, checks a second adjacent cell exists).
+`isValidPlacementOnGrid(g, r, c, type, rot)` — iterates all 4 DIRS; for each occupied neighbour, checks `weOpen` (new piece opens toward neighbour) and `theyOpen` (neighbour opens back). Both must agree: both open → connection; either alone → `return false`; both closed → fine. Returns `true` only if `hasConnection` is set (at least one matched pair).
+
+`canPlayerMove(g)` — exhaustively tries all rot×cell combinations for die 1, places a `{ type, rot }` sentinel, then checks die 2 on the updated grid. Returns `true` if any (die1, die2) placement pair is valid. Called at round start (`startRound`) and round end (`confirmPlacement`).
 
 ### Multiplayer sync
 Firebase Realtime Database under `rooms/{code}`. The host writes dice and advances rounds; all clients listen with `onValue`. `gameId` counter detects "play again" restarts client-side.
@@ -71,7 +67,7 @@ State written per-player: `score`, `confirmed`, `stuck`. Host reads `allConfirme
 - `SAVE_KEY` / `NAME_KEY` — localStorage keys
 
 ## What NOT to change
-- Placement validation is **bidirectional**: the new piece AND the neighbour must both have openings facing each other. Do not weaken to unidirectional or pure adjacency.
-- `canPlayerMove` uses a plain truthy object as a cell sentinel — it never calls `getOpenings` on it, so the type string doesn't matter.
+- Placement validation is **fully bidirectional** — iterate all 4 DIRS, not just the new piece's openings. The `!weOpen && theyOpen` case (neighbour's pipe into new piece's closed wall) is just as invalid as `weOpen && !theyOpen`. Do not revert to iterating only the new piece's openings.
+- `canPlayerMove` stores `{ type, rot }` sentinels (not bare `{}`), so `getOpenings` works correctly when die 2 checks adjacency to die 1's placement.
 - iOS zoom is suppressed via `gesturestart`/`gesturechange` events (not `user-scalable=no`, which Safari ignores).
 - `showToast()` clears `onclick` and cursor on each call — the SW update notification intentionally sets them after calling it to make the toast persistent and clickable.
