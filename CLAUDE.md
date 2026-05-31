@@ -1,18 +1,29 @@
 # Pipeline — Claude Context
 
 Vanilla-JS PWA implementation of the **Pipeline** board game by Reiner Knizia.
-No build tools, no framework — just `index.html`, `app.js`, `i18n.js`, `style.css`, `sw.js`.
+No build tools, no framework — plain ES modules loaded via `<script type="module" src="app.js">`.
 Deployed to GitHub Pages via `.github/workflows/deploy.yml` which injects Firebase secrets and `%%BUILD_DATE%%`.
 
 ## Architecture
 
 | File | Role |
 |------|------|
-| `app.js` | All game logic, Firebase sync, SVG rendering (~870 lines) |
+| `app.js` | Entry point: Firebase init, `window.*` bindings, event listeners, SW registration. All `%%PLACEHOLDER%%` CI targets live here. |
+| `constants.js` | Pure constants: `DIE1`, `DIE2`, `BASE_OPENINGS`, `DIRS`, `DIR_INDEX`, `DIR_RC`, `PLAYER_COLORS`, `SHEETS`, `SOLO_RATINGS`, `SAVE_KEY`, `NAME_KEY`. No imports. |
+| `state.js` | Single exported `state` object holding all shared mutable variables. No imports. |
+| `dom.js` | `EL` object (22 element refs), `DIE_EL` array, `SCREENS` NodeList, `SCREEN_EL` map. No imports. |
+| `utils.js` | `showToast()`, `showScreen()`, `randomCode()` |
+| `persistence.js` | `saveGame()`, `clearSave()`, `hasSave()` — localStorage serialisation for solo saves |
+| `scoring.js` | `getOpenings()`, `isValidPlacementOnGrid()`, `canPlayerMove()`, `edgeConnected()`, `scoreCell()`, `allOnesConnected()`, `calcScore()` |
+| `rendering.js` | `pipePath()`, `makeDieSVG()`, `buildGrid()`, `updateDicePanel()`, `updateConfirmBtn()`, `updateStuckUI()`, `renderWaitingPlayers()`, `renderMiniPlayers()`, `showResults()`, `winsSpan()` |
+| `round.js` | `initLocalGame()`, `rollDice()`, `startRound()`, `cellClicked()`, `undoPlace()`, `confirmPlacement()`, `setMultiplayerDb()` |
+| `solo.js` | `startSolo()`, `playAgain()`, `resumeGame()`, `discardSave()` |
+| `multiplayer.js` | `initMultiplayer()`, `createRoom()`, `joinRoom()`, `startGame()`, `playAgainSamePlayers()`, `leaveRoom()`, `cancelGame()`, `stopListeningRoom()`, `showQR()`, `copyCode()` |
+| `camera.js` | `startCameraQR()`, `stopCamera()` |
 | `i18n.js` | Language detection (DE/EN), translation table, `T()` helper, `applyTranslations()` |
 | `index.html` | Static shell — 4 screens + camera overlay; text marked with `data-i18n` attrs |
 | `style.css` | CSS custom properties, dark theme, mobile-first |
-| `sw.js` | Service-worker cache `pipeline-v4` — stale-while-revalidate (bump version on deploy) |
+| `sw.js` | Service-worker cache `pipeline-v5` — stale-while-revalidate (bump version on deploy) |
 
 ## Key Game Rules
 
@@ -27,17 +38,17 @@ Deployed to GitHub Pages via `.github/workflows/deploy.yml` which injects Fireba
 `LANG` is detected once at module load (`navigator.language.startsWith('de')`). `T(key)` looks up the current language, falling back to English. `applyTranslations()` walks `[data-i18n]` elements and sets `textContent` (or `placeholder` for `data-i18n-attr="placeholder"`). Called once at startup. Dynamic strings in JS use `T()` directly.
 
 ### DOM cache
-All elements cached at startup in `EL` (single-element refs) and `DIE_EL` (array of `{card, svg}` for each die). Never call `getElementById` at runtime. Camera elements (`cameraOverlay`, `cameraVideo`, `scanBtn`) are in `EL` too.
+All elements cached at startup in `EL` (single-element refs) and `DIE_EL` (array of `{card, svg}` for each die) in `dom.js`. Never call `getElementById` at runtime. Camera elements (`cameraOverlay`, `cameraVideo`, `scanBtn`) are in `EL` too.
 
-### Rendering
-`buildGrid()` rebuilds the entire SVG innerHTML on every change (no virtual DOM). Called on: cell click, undo, die tap, resize, round start.
+### Rendering (`rendering.js`)
+`buildGrid()` rebuilds the entire SVG innerHTML on every change (no virtual DOM). Called on: cell click, undo, die tap, resize, round start. CELL/HALF/PIPE/PIPE_PTS constants are local to `rendering.js`.
 
-`pipePath(type, rot, color)` — returns SVG fragment for one pipe piece. Uses `PIPE_PTS` and `getOpenings()`. `NEIGHBORS = Object.values(DIR_RC)` is the hoisted direction-delta array for adjacency checks.
+`pipePath(type, rot, color)` — returns SVG fragment for one pipe piece. Uses `PIPE_PTS` and `getOpenings()` from `scoring.js`.
 
-### Placement validation
+### Placement validation (`scoring.js`)
 `isValidPlacementOnGrid(g, r, c, type, rot)` — iterates all 4 DIRS; for each occupied neighbour, checks `weOpen` (new piece opens toward neighbour) and `theyOpen` (neighbour opens back). Both must agree: both open → connection; either alone → `return false`; both closed → fine. Returns `true` only if `hasConnection` is set (at least one matched pair).
 
-`canPlayerMove(g)` — exhaustively tries all rot×cell combinations for die 1, places a `{ type, rot }` sentinel, then checks die 2 on the updated grid. Returns `true` if any (die1, die2) placement pair is valid. Called at round start (`startRound`) and round end (`confirmPlacement`).
+`canPlayerMove(g)` — exhaustively tries all rot×cell combinations for die 1, places a `{ type, rot }` sentinel, then checks die 2 on the updated grid. Returns `true` if any (die1, die2) placement pair is valid. Called at round start (`startRound`) and round end (`confirmPlacement`). Reads `state.diceTypes`.
 
 ### Multiplayer sync
 Firebase Realtime Database under `rooms/{code}`. The host writes dice and advances rounds; all clients listen with `onValue`. `gameId` counter detects "play again" restarts client-side.
