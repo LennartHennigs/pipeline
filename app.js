@@ -3,7 +3,7 @@ import { getDatabase, ref, set, get, update, onValue, remove }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 import { T, LANG, applyTranslations } from './i18n.js';
 
-const BUILD_DATE = '2026-05-31T08:05:03Z';
+const BUILD_DATE = '2026-05-31T08:16:30Z';
 
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyA8_C7USI23YHRdDWjOuKbLrUN8HYgRHD0",
@@ -400,34 +400,32 @@ function startRound(d1, d2) {
   placedThisRound = [];
   activeDie = 0;
 
-  // Detect stuck before the round begins — catches cases where the rolled dice
-  // have no valid bidirectional placement anywhere on the current grid.
+  // Reset confirm button text every round (updateConfirmBtn only controls display, not text)
+  EL.confirmBtn.textContent = T('confirm');
+
+  // Show the new dice first so the player always sees what was rolled
+  EL.dicePanel.classList.remove('dice-flash');
+  void EL.dicePanel.offsetWidth;
+  EL.dicePanel.classList.add('dice-flash');
+  updateDicePanel();
+  buildGrid();
+
+  // After showing the dice, check if any placement is actually possible
   if (!canPlayerMove(grid)) {
     myStuck = true;
-    const score = calcScore();
-    round++;
+    EL.stuckBanner.style.display = 'block'; // overlay — dice panel stays visible
     if (isSolo) {
       clearSave();
-      _pendingResults = [{ name: myName, score, stuck: true }];
+      _pendingResults = [{ name: myName, score: calcScore(), stuck: true }];
       EL.confirmBtn.textContent = T('seeResults');
       EL.confirmBtn.style.display = 'block';
     } else {
-      updateMyPlayer({ confirmed: true, score, stuck: true });
+      updateMyPlayer({ confirmed: true, score: calcScore(), stuck: true });
     }
-    updateStuckUI();
-    buildGrid();
-    return;
+    return; // round already incremented in confirmPlacement — don't do it again
   }
 
-  if (!myStuck) {
-    // Flash animation — navigator.vibrate not supported on iOS
-    EL.dicePanel.classList.remove('dice-flash');
-    void EL.dicePanel.offsetWidth;
-    EL.dicePanel.classList.add('dice-flash');
-  }
-  updateDicePanel();
   updateConfirmBtn();
-  buildGrid();
   if (isSolo) saveGame();
 }
 
@@ -885,7 +883,7 @@ EL.hintsToggle.addEventListener('change', e => {
 
 applyTranslations();
 
-// Falls back to document.lastModified when 2026-05-31T08:05:03Z wasn't injected (local dev).
+// Falls back to document.lastModified when 2026-05-31T08:16:30Z wasn't injected (local dev).
 const _locales = { de: 'de-DE', en: 'en-US' };
 EL.buildVersion.textContent = new Date(
   BUILD_DATE.startsWith('%%') ? document.lastModified : BUILD_DATE
