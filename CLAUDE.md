@@ -71,7 +71,7 @@ State written per-player: `score`, `confirmed`, `stuck`. Host reads `allConfirme
 - `SAVE_KEY` / `NAME_KEY` — localStorage keys
 
 ## What NOT to change
-- Placement validation is **adjacency-only** by design (not opening-match). Don't re-add opening checks.
+- Placement validation is **bidirectional**: the new piece AND the neighbour must both have openings facing each other. Do not weaken to unidirectional or pure adjacency.
 - `canPlayerMove` uses a plain truthy object as a cell sentinel — it never calls `getOpenings` on it, so the type string doesn't matter.
 - iOS zoom is suppressed via `gesturestart`/`gesturechange` events (not `user-scalable=no`, which Safari ignores).
 - `showToast()` clears `onclick` and cursor on each call — the SW update notification intentionally sets them after calling it to make the toast persistent and clickable.
