@@ -3,7 +3,7 @@ import { getDatabase, ref, set, get, update, onValue, remove }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 import { T, LANG, applyTranslations } from './i18n.js';
 
-const BUILD_DATE = '2026-05-30T20:29:00Z';
+const BUILD_DATE = '2026-05-31T07:26:03Z';
 
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyA8_C7USI23YHRdDWjOuKbLrUN8HYgRHD0",
@@ -856,7 +856,7 @@ EL.hintsToggle.addEventListener('change', e => {
 
 applyTranslations();
 
-// Falls back to document.lastModified when 2026-05-30T20:29:00Z wasn't injected (local dev).
+// Falls back to document.lastModified when 2026-05-31T07:26:03Z wasn't injected (local dev).
 const _locales = { de: 'de-DE', en: 'en-US' };
 EL.buildVersion.textContent = new Date(
   BUILD_DATE.startsWith('%%') ? document.lastModified : BUILD_DATE
