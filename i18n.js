@@ -37,14 +37,14 @@ const i18n = {
     leaveGame: 'Leave',
     stuckMessage: "🚫 No moves left — you're done! Others are still playing.",
     score: 'Score',
-    confirm: 'Confirm',
+    confirm: 'Go on',
     // results
     results: '🏆 Results',
     yourRating: 'Your Rating',
     // dynamic / toast messages
     firebaseError: 'Firebase not configured — try Solo mode',
     enterName: 'Enter your name first',
-    mustConnect: '⚠️ Piece must connect to a neighbour',
+    mustConnect: '⚠️ Piece must connect to a neighbor',
     enterCode: 'Enter a 4-letter room code',
     roomNotFound: 'Room not found',
     gameStarted: 'Game already started',
@@ -93,7 +93,7 @@ const i18n = {
     leaveGame: 'Verlassen',
     stuckMessage: '🚫 Keine Züge mehr — du bist fertig! Andere spielen noch.',
     score: 'Punkte',
-    confirm: 'Bestätigen',
+    confirm: 'Weiter',
     // results
     results: '🏆 Ergebnis',
     yourRating: 'Deine Wertung',

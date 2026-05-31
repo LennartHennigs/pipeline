@@ -3,7 +3,7 @@ import { getDatabase, ref, set, get, update, onValue, remove }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 import { T, LANG, applyTranslations } from './i18n.js';
 
-const BUILD_DATE = '2026-05-31T08:16:30Z';
+const BUILD_DATE = '2026-05-31T08:59:02Z';
 
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyA8_C7USI23YHRdDWjOuKbLrUN8HYgRHD0",
@@ -400,20 +400,23 @@ function startRound(d1, d2) {
   placedThisRound = [];
   activeDie = 0;
 
-  // Reset confirm button text every round (updateConfirmBtn only controls display, not text)
-  EL.confirmBtn.textContent = T('confirm');
+  // Explicit UI reset — don't rely on previous state from any code path
+  EL.dicePanel.style.display   = 'block';
+  EL.stuckBanner.style.display = 'none';
+  EL.confirmBtn.textContent    = T('confirm');
+  EL.confirmBtn.style.display  = 'none';
 
-  // Show the new dice first so the player always sees what was rolled
+  // Show the new dice (flash animation)
   EL.dicePanel.classList.remove('dice-flash');
   void EL.dicePanel.offsetWidth;
   EL.dicePanel.classList.add('dice-flash');
   updateDicePanel();
   buildGrid();
 
-  // After showing the dice, check if any placement is actually possible
+  // Check if the new dice can actually be placed
   if (!canPlayerMove(grid)) {
     myStuck = true;
-    EL.stuckBanner.style.display = 'block'; // overlay — dice panel stays visible
+    EL.stuckBanner.style.display = 'block'; // stuck banner over visible dice panel
     if (isSolo) {
       clearSave();
       _pendingResults = [{ name: myName, score: calcScore(), stuck: true }];
@@ -883,7 +886,7 @@ EL.hintsToggle.addEventListener('change', e => {
 
 applyTranslations();
 
-// Falls back to document.lastModified when 2026-05-31T08:16:30Z wasn't injected (local dev).
+// Falls back to document.lastModified when 2026-05-31T08:59:02Z wasn't injected (local dev).
 const _locales = { de: 'de-DE', en: 'en-US' };
 EL.buildVersion.textContent = new Date(
   BUILD_DATE.startsWith('%%') ? document.lastModified : BUILD_DATE
