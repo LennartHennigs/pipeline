@@ -1,13 +1,47 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Project: Pipeline — a Vanilla-JS PWA implementation of the Pipeline board game by Reiner Knizia.
+  No build tools, no framework — plain ES modules loaded via <script type="module" src="app.js">.
+  Deployed to GitHub Pages via .github/workflows/deploy.yml, which injects Firebase secrets and %%BUILD_DATE%%.
+
+  Tech stack:
+  - Vanilla JS (ES modules), no bundler, no transpiler
+  - Firebase Realtime Database (CDN import) for multiplayer
+  - Service worker (sw.js) for PWA offline support — bump CACHE_NAME on every deploy
+  - CSS custom properties, dark theme, mobile-first
+
+  Module architecture (each file has a single responsibility):
+  - app.js         — entry point: Firebase init, window.* bindings, event listeners, SW registration
+  - constants.js   — pure constants, no imports
+  - state.js       — single exported mutable state object, no imports
+  - dom.js         — EL element refs, DIE_EL array, SCREEN_EL map; no imports
+  - utils.js       — showToast(), showScreen(), randomCode(), returnToLobby()
+  - persistence.js — saveGame(), loadSave(), clearSave(), hasSave() via localStorage
+  - scoring.js     — getOpenings(), isValidPlacementOnGrid(), canPlayerMove(), calcScore()
+  - rendering.js   — buildGrid(), resizeGrid(), resetGridSize(), updateDicePanel(), showResults()
+  - round.js       — initLocalGame(), startRound(), cellClicked(), confirmPlacement()
+  - solo.js        — startSolo(), resumeGame(), playAgain(), discardSave()
+  - multiplayer.js — createRoom(), joinRoom(), startGame(), playAgainSamePlayers(), leaveRoom()
+  - camera.js      — startCameraQR(), stopCamera()
+  - i18n.js        — T(), applyTranslations(), LANG detection (DE/EN)
+
+  Key conventions:
+  - All DOM elements cached at startup in EL (dom.js) — never getElementById at runtime
+  - buildGrid() rebuilds entire SVG innerHTML on every change (no virtual DOM)
+  - Placement validation is fully bidirectional — all 4 directions, both weOpen and theyOpen must agree
+  - canPlayerMove() tries both die orderings (die1→die2 and die2→die1) to avoid false "stuck"
+  - Multiplayer: Firebase under rooms/{code}; host writes dice and advances rounds
+  - Dependency injection for Firebase: setMultiplayerDb(fn) passes update-player lambda to round.js
+  - returnToLobby() is the canonical teardown: state.isSolo=false, state.sheetCfg=null, showScreen('lobby')
+  - Commits follow conventional commits: Fix:, Feat:, UX:, Chore:, Docs:, Refactor:
+
+  Game rules summary:
+  - Two dice placed per round; both must be placed before confirming
+  - Placement is bidirectional: new piece and each occupied neighbour must agree on every shared face
+  - Scoring: pipe openings facing numbered edges score that edge's value; +10 bonus if all edge-1 openings connected
+  - Stuck: canPlayerMove returns false — no valid placement exists for both dice in any order
+  - Sheets: front (5×5, 12 rounds) and back (6×5, 14 rounds)
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.

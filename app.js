@@ -13,7 +13,7 @@ import { initMultiplayer, createRoom, joinRoom, startGame, playAgainSamePlayers,
          leaveRoom, cancelGame, copyCode } from './multiplayer.js';
 import { startCameraQR, stopCamera } from './camera.js';
 
-const BUILD_DATE = '2026-05-31T18:58:55Z';
+const BUILD_DATE = '2026-05-31T19:01:38Z';
 
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyA8_C7USI23YHRdDWjOuKbLrUN8HYgRHD0",
